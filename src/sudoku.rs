@@ -2,8 +2,6 @@ use super::exact_cover::{Constraint, Possibility};
 use std::iter::Iterator;
 
 const MAX_ROW: usize = 9;
-const MAX_COL: usize = 9;
-const MAX_VAL: usize = 9;
 const MAX_BLOCK: usize = 9;
 
 // (row, column, value)
@@ -147,6 +145,9 @@ impl Constraint for SudokuConstraint {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const MAX_COL: usize = 9;
+    const MAX_VAL: usize = 9;
 
     #[test]
     fn generate_all_possibilities() {
