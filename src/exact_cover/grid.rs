@@ -14,6 +14,18 @@ pub struct GridRoot<P: Hash + Eq, C: Hash + Eq> {
     pub nodes: Vec<NonNull<Node<P, C>>>,
 }
 
+impl<P: Hash + Eq, C: Hash + Eq> Drop for GridRoot<P, C> {
+    fn drop(&mut self) {
+        for column in self.columns.values() {
+            unsafe { column.as_ptr().drop_in_place(); }
+        }
+
+        for node in &self.nodes {
+            unsafe { node.as_ptr().drop_in_place(); }
+        }
+    }
+}
+
 impl<P> GridRoot<P, P::Constraint>
 where
     P: Possibility,
