@@ -3,6 +3,7 @@
 pub mod grid;
 pub mod latin_square;
 pub mod solver;
+pub mod sudoku;
 pub(crate) mod util;
 
 pub trait ExactCover {

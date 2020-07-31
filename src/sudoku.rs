@@ -1,174 +1,268 @@
-use super::exact_cover::{Constraint, Possibility};
-use std::iter::Iterator;
+use super::{latin_square, ExactCover};
+use core::iter;
+use std::collections::HashSet;
 
-const MAX_ROW: usize = 9;
-const MAX_BLOCK: usize = 9;
+#[derive(Debug)]
+pub struct Sudoku;
 
-// (row, column, value)
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub struct CellPossibility(u8, u8, u8);
+impl Sudoku {
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(
+        box_side_length: usize,
+        filled_values: impl IntoIterator<Item = latin_square::Possibility>,
+    ) -> (Vec<Possibility>, Vec<Constraint>) {
+        let side_length = box_side_length * box_side_length;
+        let filled_values: Vec<_> = filled_values.into_iter().collect();
 
-impl CellPossibility {
-    fn next(&self) -> Option<Self> {
-        let CellPossibility(r, c, v) = *self;
+        let (latin_possibilities, latin_constraints) =
+            latin_square::LatinSquare::new(side_length, filled_values.iter().copied());
 
-        if v == 9 {
-            if c == 9 {
-                if r == 9 {
-                    None
-                } else {
-                    Some(CellPossibility(r + 1, 1, 1))
-                }
-            } else {
-                Some(CellPossibility(r, c + 1, 1))
-            }
-        } else {
-            Some(CellPossibility(r, c, v + 1))
+        let satisfied: HashSet<_> = filled_values
+            .iter()
+            .copied()
+            .map(|latin_poss| Possibility::from_latin(latin_poss, box_side_length))
+            .flat_map(Possibility::satisfied_constraints)
+            .collect();
+
+        let possibilities = latin_possibilities
+            .into_iter()
+            .map(|latin_poss| Possibility::from_latin(latin_poss, box_side_length))
+            .collect();
+
+        let constraints = latin_constraints
+            .into_iter()
+            .map(Constraint::from)
+            .chain(Constraint::all_square_number(box_side_length))
+            .filter(|cons| !satisfied.contains(cons))
+            .collect();
+
+        (possibilities, constraints)
+    }
+}
+
+impl ExactCover for Sudoku {
+    type Constraint = Constraint;
+    type Possibility = Possibility;
+
+    fn satisfies(poss: &Self::Possibility, cons: &Self::Constraint) -> bool {
+        use Constraint::*;
+
+        match cons {
+            Latin(latin_cons) => latin_square::LatinSquare::satisfies(&poss.latin, latin_cons),
+            SquareNumber { square, value } => poss.square == *square && poss.latin.value == *value,
         }
     }
 
-    pub fn all_possibilities() -> AllPossibilities {
-        AllPossibilities {
-            current: Some(CellPossibility(1, 1, 1)),
-        }
-    }
-
-    fn cell_index(&self) -> u8 {
-        self.0 + MAX_ROW as u8 * self.1
-    }
-
-    fn block_index(&self) -> u8 {
-        self.0 / (MAX_BLOCK as u8) + self.1 / (MAX_BLOCK as u8 / 3)
+    fn is_optional(_cons: &Self::Constraint) -> bool {
+        false
     }
 }
 
-impl Possibility for CellPossibility {
-    type Constraint = SudokuConstraint;
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Possibility {
+    pub(crate) latin: latin_square::Possibility,
+    pub(crate) square: usize,
+}
 
-    fn constraints(&self) -> Vec<Self::Constraint> {
-        vec![
-            SudokuConstraint::Cell(self.cell_index()),
-            SudokuConstraint::Row(self.0, self.2),
-            SudokuConstraint::Column(self.1, self.2),
-            SudokuConstraint::Block(self.block_index(), self.2),
-        ]
+impl Possibility {
+    pub fn from_latin(latin: latin_square::Possibility, box_side_length: usize) -> Self {
+        let side_length = box_side_length * box_side_length;
+        let index = latin.row * side_length + latin.column;
+        let square = ((index % side_length) / box_side_length)
+            + box_side_length * (index / (side_length * box_side_length));
+
+        Possibility { latin, square }
     }
-}
 
-pub struct AllPossibilities {
-    current: Option<CellPossibility>,
-}
-
-impl Iterator for AllPossibilities {
-    type Item = CellPossibility;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let result = self.current;
-
-        self.current = result.and_then(|x| x.next());
-
-        result
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub enum SudokuConstraint {
-    Cell(u8),       // 1 - 81 cell
-    Row(u8, u8),    // (1 - 9 row, 1 - 9 value)
-    Column(u8, u8), // (1 - 9 column, 1 - 9 value)
-    Block(u8, u8),  // (1 - 9 block, 1 - 9 value)
-}
-
-impl SudokuConstraint {
-    fn next(&self) -> Option<Self> {
-        match *self {
-            SudokuConstraint::Cell(c) => if c >= 81 {
-                Some(SudokuConstraint::Row(1, 1))
-            } else {
-                Some(SudokuConstraint::Cell(c + 1))
-            },
-            SudokuConstraint::Row(r, v) => if v >= 9 {
-                if r >= 9 {
-                    Some(SudokuConstraint::Column(1, 1))
-                } else {
-                    Some(SudokuConstraint::Row(r + 1, 1))
+    pub fn satisfied_constraints(self) -> impl Iterator<Item = Constraint> {
+        iter::successors(
+            Some(Constraint::Latin(latin_square::Constraint::RowNumber {
+                row: self.latin.row,
+                value: self.latin.value,
+            })),
+            move |cons| match cons {
+                Constraint::Latin(latin_square::Constraint::RowNumber { .. }) => {
+                    Some(Constraint::Latin(latin_square::Constraint::ColumnNumber {
+                        column: self.latin.column,
+                        value: self.latin.value,
+                    }))
                 }
-            } else {
-                Some(SudokuConstraint::Row(r, v + 1))
-            },
-            SudokuConstraint::Column(c, v) => if v >= 9 {
-                if c >= 9 {
-                    Some(SudokuConstraint::Block(1, 1))
-                } else {
-                    Some(SudokuConstraint::Column(c + 1, 1))
+                Constraint::Latin(latin_square::Constraint::ColumnNumber { .. }) => {
+                    Some(Constraint::Latin(latin_square::Constraint::RowColumn {
+                        row: self.latin.row,
+                        column: self.latin.column,
+                    }))
                 }
-            } else {
-                Some(SudokuConstraint::Column(c, v + 1))
-            },
-            SudokuConstraint::Block(b, v) => if v >= 9 {
-                if b >= 9 {
-                    None
-                } else {
-                    Some(SudokuConstraint::Block(b + 1, 1))
+                Constraint::Latin(latin_square::Constraint::RowColumn { .. }) => {
+                    Some(Constraint::SquareNumber {
+                        square: self.square,
+                        value: self.latin.value,
+                    })
                 }
-            } else {
-                Some(SudokuConstraint::Block(b, v + 1))
+                Constraint::SquareNumber { .. } => None,
             },
-        }
-    }
-
-    pub fn all_constraints() -> AllConstraints {
-        AllConstraints {
-            current: Some(SudokuConstraint::Cell(1)),
-        }
+        )
     }
 }
 
-pub struct AllConstraints {
-    current: Option<SudokuConstraint>,
-}
-
-impl Iterator for AllConstraints {
-    type Item = SudokuConstraint;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let result = self.current;
-
-        self.current = result.and_then(|x| x.next());
-
-        result
+impl Into<latin_square::Possibility> for Possibility {
+    fn into(self) -> latin_square::Possibility {
+        self.latin
     }
 }
 
-impl Constraint for SudokuConstraint {}
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Constraint {
+    Latin(latin_square::Constraint),
+    SquareNumber { square: usize, value: usize },
+}
+
+impl Constraint {
+    fn all_square_number(box_side_length: usize) -> impl Iterator<Item = Constraint> {
+        let side_length = box_side_length * box_side_length;
+
+        crate::util::two_combination_iter([side_length, side_length + 1], [0, 1])
+            .map(|[square, value]| Constraint::SquareNumber { square, value })
+    }
+}
+
+impl From<latin_square::Constraint> for Constraint {
+    fn from(src: latin_square::Constraint) -> Self {
+        Constraint::Latin(src)
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const MAX_COL: usize = 9;
-    const MAX_VAL: usize = 9;
+    fn p(row: usize, column: usize, square: usize, value: usize) -> Possibility {
+        Possibility {
+            latin: latin_square::Possibility { row, column, value },
+            square,
+        }
+    }
 
-    #[test]
-    fn generate_all_possibilities() {
-        use std::collections::HashSet;
+    fn c_row(row: usize, value: usize) -> Constraint {
+        Constraint::Latin(latin_square::Constraint::RowNumber { row, value })
+    }
 
-        let all_possibilities: HashSet<CellPossibility> =
-            CellPossibility::all_possibilities().collect();
+    fn c_col(column: usize, value: usize) -> Constraint {
+        Constraint::Latin(latin_square::Constraint::ColumnNumber { column, value })
+    }
 
-        assert_eq!(all_possibilities.len(), MAX_ROW * MAX_VAL * MAX_COL);
+    fn c_row_col(row: usize, column: usize) -> Constraint {
+        Constraint::Latin(latin_square::Constraint::RowColumn { row, column })
+    }
+
+    fn c_square(square: usize, value: usize) -> Constraint {
+        Constraint::SquareNumber { square, value }
     }
 
     #[test]
-    fn generate_all_constraints() {
-        use std::collections::HashSet;
+    fn check_generated_possibilities_constraints() {
+        let (mut possibilities, mut constraints) = Sudoku::new(
+            2,
+            vec![
+                // top row
+                latin_square::tests::p(0, 0, 1),
+                latin_square::tests::p(0, 1, 2),
+                latin_square::tests::p(0, 2, 3),
+                latin_square::tests::p(0, 3, 4),
+                // middle bits
+                latin_square::tests::p(1, 0, 3),
+                latin_square::tests::p(2, 0, 2),
+                latin_square::tests::p(1, 3, 2),
+                latin_square::tests::p(2, 3, 3),
+                // bottom row
+                latin_square::tests::p(3, 0, 4),
+                latin_square::tests::p(3, 1, 3),
+                latin_square::tests::p(3, 2, 2),
+                latin_square::tests::p(3, 3, 1),
+            ],
+        );
 
-        let all_possibilities: HashSet<SudokuConstraint> =
-            SudokuConstraint::all_constraints().collect();
-
+        possibilities.sort();
         assert_eq!(
-            all_possibilities.len(),
-            MAX_ROW * MAX_COL + MAX_ROW * MAX_VAL + MAX_COL * MAX_VAL + MAX_BLOCK * MAX_VAL
+            possibilities,
+            vec![
+                p(1, 1, 0, 1),
+                p(1, 1, 0, 2),
+                p(1, 1, 0, 3),
+                p(1, 1, 0, 4),
+                p(1, 2, 1, 1),
+                p(1, 2, 1, 2),
+                p(1, 2, 1, 3),
+                p(1, 2, 1, 4),
+                p(2, 1, 2, 1),
+                p(2, 1, 2, 2),
+                p(2, 1, 2, 3),
+                p(2, 1, 2, 4),
+                p(2, 2, 3, 1),
+                p(2, 2, 3, 2),
+                p(2, 2, 3, 3),
+                p(2, 2, 3, 4),
+            ]
+        );
+        constraints.sort();
+        assert_eq!(
+            constraints,
+            vec![
+                c_row(1, 1),
+                c_row(1, 4),
+                c_row(2, 1),
+                c_row(2, 4),
+                c_col(1, 1),
+                c_col(1, 4),
+                c_col(2, 1),
+                c_col(2, 4),
+                c_row_col(1, 1),
+                c_row_col(1, 2),
+                c_row_col(2, 1),
+                c_row_col(2, 2),
+                c_square(0, 4),
+                c_square(1, 1),
+                c_square(2, 1),
+                c_square(3, 4),
+            ]
+        );
+    }
+
+    #[test]
+    fn solve_small_sudoku() {
+        let (possibilities, constraints) = Sudoku::new(
+            2,
+            vec![
+                // top row
+                latin_square::tests::p(0, 0, 1),
+                latin_square::tests::p(0, 1, 2),
+                latin_square::tests::p(0, 2, 3),
+                latin_square::tests::p(0, 3, 4),
+                // middle bits
+                latin_square::tests::p(1, 0, 3),
+                latin_square::tests::p(2, 0, 2),
+                latin_square::tests::p(1, 3, 2),
+                latin_square::tests::p(2, 3, 3),
+                // bottom row
+                latin_square::tests::p(3, 0, 4),
+                latin_square::tests::p(3, 1, 3),
+                latin_square::tests::p(3, 2, 2),
+                latin_square::tests::p(3, 3, 1),
+            ],
+        );
+
+        let mut solver = crate::solver::Solver::<Sudoku>::new(&possibilities, &constraints);
+        let solutions = solver.all_solutions();
+
+        assert_eq!(solutions.len(), 1);
+        assert_eq!(
+            solutions[0],
+            vec![
+                &p(1, 1, 0, 4),
+                &p(1, 2, 1, 1),
+                &p(2, 1, 2, 1),
+                &p(2, 2, 3, 4)
+            ]
         );
     }
 }
