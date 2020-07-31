@@ -124,7 +124,7 @@ where
                 (
                     Node::row_index(node_ptr),
                     Node::neighbors(node_ptr)
-                        .map(|neighbor_ptr| Node::column_ptr(neighbor_ptr))
+                        .map(Node::column_ptr)
                         .chain(iter::once(Node::column_ptr(node_ptr)))
                         .collect(),
                 )
