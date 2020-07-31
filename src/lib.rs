@@ -1,5 +1,4 @@
-#![feature(raw_ref_macros)]
+#![warn(missing_docs)]
 
-// pub mod exact_cover;
-// pub mod sudoku;
 pub mod grid;
+pub(crate) mod util;

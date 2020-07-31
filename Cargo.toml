@@ -2,5 +2,7 @@
 name = "dancing-links"
 version = "0.1.0"
 authors = ["Declan Kelly <dkelly.home@gmail.com>"]
+edition = "2018"
 
 [dependencies]
+bumpalo = "3.4"

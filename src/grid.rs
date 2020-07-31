@@ -1,10 +1,7 @@
 mod base_node;
 
 use base_node::BaseNode;
-use core::{
-    iter::{once, repeat},
-    ptr,
-};
+use core::{iter::once, ptr};
 use std::collections::VecDeque;
 
 #[derive(Debug)]
@@ -14,6 +11,9 @@ pub struct Grid {
 
     arena: bumpalo::Bump,
     columns: Vec<*mut Column>,
+
+    num_columns: usize,
+    max_row: usize,
 }
 
 impl Grid {
@@ -23,11 +23,7 @@ impl Grid {
         let arena = bumpalo::Bump::new();
         let root = Column::new(&arena, 0);
         let columns = once(root)
-            .chain(
-                (1..=num_columns)
-                    .into_iter()
-                    .map(|idx| Column::new(&arena, idx)),
-            )
+            .chain((1..=num_columns).map(|idx| Column::new(&arena, idx)))
             .collect::<Vec<_>>();
 
         // Chain all the columns together, including the sentinel root column.
@@ -43,6 +39,8 @@ impl Grid {
             root,
             columns,
             arena,
+            num_columns,
+            max_row: 0,
         };
 
         grid.add_all_coordinates(coordinates);
@@ -52,10 +50,8 @@ impl Grid {
 
     fn add_all_coordinates(&mut self, coordinates: impl IntoIterator<Item = (usize, usize)>) {
         // Deduct one for the sentinel column
-        let mut columns_data: Vec<Vec<_>> = (0..(self.columns.len() - 1))
-            .into_iter()
-            .map(|_| Vec::new())
-            .collect();
+        let mut columns_data: Vec<Vec<_>> =
+            (0..(self.columns.len() - 1)).map(|_| Vec::new()).collect();
 
         for (row, column) in coordinates {
             debug_assert!(
@@ -70,6 +66,10 @@ impl Grid {
             );
 
             columns_data[column - 1].push((row, column));
+
+            if self.max_row < row {
+                self.max_row = row
+            }
         }
 
         for column_data in &mut columns_data {
@@ -139,12 +139,18 @@ impl Grid {
             // Select the subcollection of least row nodes
             for (idx, row_node_pair) in top_nodes.iter().enumerate() {
                 if let Some((row, node)) = row_node_pair {
-                    if *row == least_row {
-                        least_nodes.push((idx, *node));
-                    } else if *row < least_row {
-                        least_nodes.clear();
-                        least_row = *row;
-                        least_nodes.push((idx, *node));
+                    use core::cmp::Ordering;
+
+                    match row.cmp(&least_row) {
+                        Ordering::Equal => {
+                            least_nodes.push((idx, *node));
+                        }
+                        Ordering::Less => {
+                            least_nodes.clear();
+                            least_row = *row;
+                            least_nodes.push((idx, *node));
+                        }
+                        Ordering::Greater => {}
                     }
                 }
             }
@@ -171,82 +177,77 @@ impl Grid {
     }
 
     pub fn to_dense(&self) -> Box<[Box<[bool]>]> {
-        let mut column_count = 0;
+        let seen_coords = self.uncovered_columns().flat_map(|column_ptr| {
+            let column_idx = Column::index(column_ptr);
+            Column::values(column_ptr).map(move |row_idx| (row_idx, column_idx))
+        });
 
-        // Accessing the columns using this method to get an accurate picture of which
-        // values are still uncovered in the grid.
+        let mut output = vec![false; self.num_columns * self.max_row];
 
-        // Get an accurate count first so that the width of a row is accurate
-        for _ in base_node::iter::right(self.root.cast(), Some(self.root.cast())) {
-            column_count += 1;
-
-            debug_assert!(column_count <= (self.columns.len() - 1));
+        for (row_idx, column_idx) in seen_coords {
+            output[(row_idx - 1) * self.num_columns + (column_idx - 1)] = true
         }
 
-        let idx_map = |row: usize, column: usize| (row - 1) * column_count + (column - 1);
-        let mut output = vec![];
-
-        // Keep in mind that row_idx and column_idx are 1 based.
-        for column_ptr in base_node::iter::right(self.root.cast(), Some(self.root.cast()))
-            .map(|node_ptr| node_ptr.cast::<Column>())
-        {
-            let column = unsafe { ptr::read(column_ptr) };
-
-            for row_idx in Column::values(unsafe { column_ptr.as_ref().unwrap() }) {
-                let num_current_rows = output.len() / column_count;
-                // If there aren't enough rows in the output, grow the output.
-                if num_current_rows < row_idx {
-                    let new_rows = row_idx - num_current_rows;
-
-                    output.extend(repeat(false).take(new_rows * column_count));
-                }
-
-                debug_assert!(
-                    row_idx != 0 && column.idx != 0,
-                    "row or column should not equal zero [{:?}].",
-                    (row_idx, column.idx)
-                );
-                output[idx_map(row_idx, column.idx)] = true;
-            }
-        }
-
-        if column_count == 0 {
+        if self.num_columns == 0 {
             debug_assert!(output.is_empty());
 
             vec![].into_boxed_slice()
         } else {
             output
                 .as_slice()
-                .chunks(column_count)
+                .chunks(self.num_columns)
                 .map(Box::<[_]>::from)
                 .collect()
         }
     }
 
-    pub fn uncovered_columns<'g>(&'g mut self) -> impl Iterator<Item = &'g mut Column> {
-        base_node::iter::right_mut(self.root.cast(), Some(self.root.cast())).map(|base_ptr| {
-            let column_ptr = base_ptr.cast::<Column>();
-
-            unsafe { column_ptr.as_mut().unwrap() }
-        })
+    pub fn uncovered_columns(&self) -> impl Iterator<Item = *const Column> {
+        base_node::iter::right(self.root.cast(), Some(self.root.cast()))
+            .map(|base_ptr| base_ptr.cast::<Column>())
     }
 
-    pub fn all_columns<'g>(&'g mut self) -> impl Iterator<Item = &'g mut Column> {
+    pub fn uncovered_columns_mut(&mut self) -> impl Iterator<Item = *mut Column> {
+        base_node::iter::right_mut(self.root.cast(), Some(self.root.cast()))
+            .map(|base_ptr| base_ptr.cast::<Column>())
+    }
+
+    pub fn all_columns_mut(
+        &mut self,
+    ) -> impl Iterator<Item = *mut Column> + DoubleEndedIterator + '_ {
         self.columns
             .iter()
+            .copied()
             // Skip the sentinel
             .skip(1)
-            .map(|column_ptr| unsafe { column_ptr.as_mut().unwrap() })
+    }
+
+    pub fn get_column(&self, index: usize) -> Option<*const Column> {
+        self.columns
+            .get(index)
+            .copied()
+            .map(|column_ptr| column_ptr as *const _)
+    }
+
+    pub fn get_column_mut(&mut self, index: usize) -> Option<*mut Column> {
+        self.columns.get(index).copied()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        unsafe {
+            let column = ptr::read(self.root);
+
+            (column.base.right as *const _) == self.root.cast()
+        }
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
-struct Node {
-    pub base: BaseNode,
+pub struct Node {
+    base: BaseNode,
 
-    pub row: usize,
-    pub column: *mut Column,
+    row: usize,
+    column: *mut Column,
 }
 
 impl Node {
@@ -279,34 +280,59 @@ impl Node {
     }
 
     fn uncover_row(self_ptr: *mut Self) {
-        base_node::iter::left_mut(self_ptr.cast(), Some(self_ptr.cast())).for_each(
-            |base_ptr| unsafe {
-                let node = ptr::read(base_ptr.cast::<Node>());
+        let base_ptr = self_ptr.cast::<BaseNode>();
 
-                Column::increment_size(node.column);
-                BaseNode::uncover_vertical(base_ptr);
-            },
-        )
+        base_node::iter::left_mut(base_ptr, Some(base_ptr)).for_each(|base_ptr| unsafe {
+            let node = ptr::read(base_ptr.cast::<Node>());
+
+            Column::increment_size(node.column);
+            BaseNode::uncover_vertical(base_ptr);
+        })
+    }
+
+    pub fn row_index(self_ptr: *const Self) -> usize {
+        unsafe { ptr::read(self_ptr).row }
+    }
+
+    pub fn column_index(self_ptr: *const Self) -> usize {
+        unsafe {
+            let node = ptr::read(self_ptr);
+            let column = ptr::read(node.column);
+
+            column.index
+        }
+    }
+
+    pub fn column_ptr(self_ptr: *const Self) -> *mut Column {
+        unsafe {
+            let node = ptr::read(self_ptr);
+
+            node.column
+        }
+    }
+
+    pub fn neighbors(self_ptr: *const Self) -> impl Iterator<Item = *const Node> {
+        base_node::iter::left(self_ptr.cast(), None).map(|base_ptr| base_ptr.cast())
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
-struct Column {
+pub struct Column {
     base: BaseNode,
 
     size: usize,
-    idx: usize,
+    index: usize,
     is_covered: bool,
 }
 
 impl Column {
-    fn new(arena: &bumpalo::Bump, idx: usize) -> *mut Self {
+    fn new(arena: &bumpalo::Bump, index: usize) -> *mut Self {
         let column = arena.alloc(Column {
             base: BaseNode::new(),
             size: 0,
             is_covered: false,
-            idx,
+            index,
         });
 
         column.base.set_self_ptr();
@@ -335,47 +361,101 @@ impl Column {
     }
 
     // Cover entire column, and any rows that that appear in this column
-    pub fn cover(&mut self) {
-        assert!(!self.is_covered);
+    pub fn cover(self_ptr: *mut Self) {
+        let mut column = unsafe { ptr::read(self_ptr) };
+        assert!(!column.is_covered);
 
-        let self_ptr = self.base_ptr();
+        let base_ptr = self_ptr.cast::<BaseNode>();
 
-        BaseNode::cover_horizontal(self_ptr);
+        BaseNode::cover_horizontal(base_ptr);
 
-        base_node::iter::down_mut(self_ptr, Some(self_ptr))
+        base_node::iter::down_mut(base_ptr, Some(base_ptr))
             .for_each(|base_ptr| Node::cover_row(base_ptr.cast()));
 
-        self.is_covered = true;
+        column.is_covered = true;
+        unsafe {
+            ptr::write(self_ptr, column);
+        }
     }
 
     // Uncover entire column, and any rows that appear in this column
-    pub fn uncover(&mut self) {
-        assert!(self.is_covered);
+    pub fn uncover(self_ptr: *mut Self) {
+        let mut column = unsafe { ptr::read(self_ptr) };
+        assert!(column.is_covered);
 
-        let self_ptr = self.base_ptr();
+        let base_ptr = self_ptr.cast::<BaseNode>();
 
-        base_node::iter::up_mut(self_ptr, Some(self_ptr))
+        base_node::iter::up_mut(base_ptr, Some(base_ptr))
             .for_each(|base_ptr| Node::uncover_row(base_ptr.cast()));
 
-        BaseNode::uncover_horizontal(self_ptr);
+        BaseNode::uncover_horizontal(base_ptr);
 
-        self.is_covered = false;
-    }
-
-    fn base_ptr(&mut self) -> *mut BaseNode {
-        (self as *mut Column).cast()
+        column.is_covered = false;
+        unsafe {
+            ptr::write(self_ptr, column);
+        }
     }
 
     fn add_right(self_ptr: *mut Self, neighbor_ptr: *mut Column) {
         BaseNode::add_right(self_ptr.cast(), neighbor_ptr.cast());
     }
 
-    pub fn values(&self) -> impl Iterator<Item = usize> {
-        let self_ptr: *const Self = self;
+    pub fn is_empty(self_ptr: *const Self) -> bool {
+        unsafe {
+            let column = ptr::read(self_ptr);
 
-        base_node::iter::down(self_ptr.cast(), Some(self_ptr.cast()))
-            .map(|base_ptr| unsafe { ptr::read(base_ptr.cast::<Node>()).row })
+            (column.base.down as *const _) == self_ptr
+        }
     }
+
+    pub fn values(self_ptr: *const Self) -> impl Iterator<Item = usize> {
+        Column::rows(self_ptr).map(|node_ptr| unsafe { ptr::read(node_ptr).row })
+    }
+
+    pub fn rows(self_ptr: *const Self) -> impl Iterator<Item = *const Node> {
+        base_node::iter::down(self_ptr.cast(), Some(self_ptr.cast()))
+            .map(|base_ptr| base_ptr.cast())
+    }
+
+    pub fn nodes_mut(self_ptr: *mut Self) -> impl Iterator<Item = *mut Node> {
+        base_node::iter::down_mut(self_ptr.cast(), Some(self_ptr.cast()))
+            .map(|base_ptr| base_ptr.cast())
+    }
+
+    pub fn index(self_ptr: *const Self) -> usize {
+        unsafe { ptr::read(self_ptr).index }
+    }
+
+    pub fn size(self_ptr: *const Self) -> usize {
+        unsafe { ptr::read(self_ptr).size }
+    }
+}
+
+#[cfg(test)]
+pub fn to_string(grid: &Grid) -> String {
+    use std::fmt::Write;
+
+    let mut output = String::new();
+    let dense = grid.to_dense();
+
+    if dense.is_empty() {
+        writeln!(&mut output, "Empty!").unwrap();
+
+        return output;
+    }
+
+    for row in dense.iter() {
+        writeln!(
+            &mut output,
+            "{:?}",
+            row.iter()
+                .map(|yes| if *yes { 1 } else { 0 })
+                .collect::<Vec<_>>()
+        )
+        .unwrap();
+    }
+
+    output
 }
 
 #[cfg(test)]
@@ -404,8 +484,19 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn create_weird_grids() {
-        let thin_grid = Grid::new(1, vec![(1, 1), (2, 1), (3, 1), (5, 1), (8, 1)]);
+        let thin_grid = Grid::new(1, vec![
+            (1, 1),
+            (2, 1),
+            (3, 1),
+            // skip 4
+            (5, 1),
+            // skip 6, 7
+            (8, 1)
+        ]);
 
+        // The reasoning behind having the skipped rows not show up in
+        // the dense output is that those rows are not present at all in
+        // the
         assert_eq!(
             thin_grid.to_dense(),
             [
@@ -422,10 +513,12 @@ mod tests {
             .map(Box::<[_]>::from)
             .collect()
         );
+        assert!(!thin_grid.is_empty());
 
         let very_thin_grid = Grid::new(0, vec![]);
 
         assert_eq!(very_thin_grid.to_dense(), vec![].into_boxed_slice());
+        assert!(very_thin_grid.is_empty());
     }
 
     #[test]
@@ -434,27 +527,34 @@ mod tests {
         let mut grid = Grid::new(4, vec![(1, 1), (1, 4), (2, 2), (3, 3), (4, 1), (4, 4)]);
 
         // mutate the grid
-        grid.all_columns().nth(3).unwrap().cover();
+        Column::cover(grid.all_columns_mut().nth(3).unwrap());
 
         // Check remaining columns
-        assert!(grid.uncovered_columns().map(|column| column.idx).eq(1..=3));
+        assert!(grid
+            .uncovered_columns()
+            .map(|column_ptr| unsafe { ptr::read(column_ptr).index })
+            .eq(1..=3));
         assert_eq!(
             grid.to_dense(),
             [
-                false, false, false,
-                false, true, false,
-                false, false, true,
+                false, false, false, false,
+                false, true, false, false,
+                false, false, true, false,
+                false, false, false, false
             ]
-            .chunks(3)
+            .chunks(4)
             .map(Box::<[_]>::from)
             .collect()
         );
 
         // mutate the grid
-        grid.all_columns().nth(3).unwrap().uncover();
+        Column::uncover(grid.all_columns_mut().nth(3).unwrap());
 
         // Check remaining columns
-        assert!(grid.uncovered_columns().map(|column| column.idx).eq(1..=4));
+        assert!(grid
+            .uncovered_columns()
+            .map(|column_ptr| unsafe { ptr::read(column_ptr).index })
+            .eq(1..=4));
         assert_eq!(
             grid.to_dense(),
             [
@@ -472,27 +572,41 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn cover_uncover_all() {
-        let mut grid = Grid::new(4, vec![(1, 1), (1, 4), (2, 2), (3, 3), (4, 1), (4, 4)]);
+        let mut grid = Grid::new(4, vec![
+            (1, 1),                 (1, 4),
+                    (2, 2),
+                            (3, 3),
+            (4, 1),                 (4, 4)
+        ]);
 
         // mutate the grid
-        for column in grid.all_columns() {
-            column.cover()
+        for column_ptr in grid.all_columns_mut() {
+            Column::cover(column_ptr)
         }
 
         // Check remaining columns
-        assert_eq!(grid.uncovered_columns().map(|column| column.idx).count(), 0);
+        assert_eq!(grid.uncovered_columns().map(|column_ptr| unsafe { ptr::read(column_ptr).index }).count(), 0);
         assert_eq!(
             grid.to_dense(),
-            vec![].into_boxed_slice()
+            [
+                false, false, false, false,
+                false, false, false, false,
+                false, false, false, false,
+                false, false, false, false
+            ]
+            .chunks(4)
+            .map(Box::<[_]>::from)
+            .collect()
         );
+        assert!(grid.is_empty());
 
         // mutate the grid
-        for column in grid.all_columns() {
-            column.uncover()
+        for column_ptr in grid.all_columns_mut().rev() {
+            Column::uncover(column_ptr)
         }
 
         // Check remaining columns
-        assert!(grid.uncovered_columns().map(|column| column.idx).eq(1..=4));
+        assert!(grid.uncovered_columns().map(|column_ptr| unsafe { ptr::read(column_ptr).index }).eq(1..=4));
         assert_eq!(
             grid.to_dense(),
             [
@@ -502,6 +616,53 @@ mod tests {
                 true, false, false, true
             ]
             .chunks(4)
+            .map(Box::<[_]>::from)
+            .collect()
+        );
+        assert!(!grid.is_empty());
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn latin_square_cover_1() {
+        // [1, 0, 0, 0, 1, 0]
+        // [0, 1, 1, 0, 1, 0]
+        // [1, 0, 0, 1, 0, 1]
+        // [0, 1, 0, 0, 0, 1]
+        let mut grid = Grid::new(6, vec![
+            (1, 1),                         (1, 5),
+                    (2, 2), (2, 3),         (2, 5),
+            (3, 1),                 (3, 4),         (3, 6),
+                    (4, 2),                         (4, 6),
+        ]);
+
+        assert_eq!(
+            grid.to_dense(),
+            [
+                true, false, false, false, true, false,
+                false, true, true, false, true, false,
+                true, false, false, true, false, true,
+                false, true, false, false, false, true,
+            ]
+            .chunks(6)
+            .map(Box::<[_]>::from)
+            .collect()
+        );
+        assert!(!grid.is_empty());
+
+        Column::cover(grid.get_column_mut(2).unwrap());
+        Column::cover(grid.get_column_mut(3).unwrap());
+        Column::cover(grid.get_column_mut(5).unwrap());
+
+        assert_eq!(
+            grid.to_dense(),
+            [
+                false, false, false, false, false, false,
+                false, false, false, false, false, false,
+                true, false, false, true, false, true,
+                false, false, false, false, false, false,
+            ]
+            .chunks(6)
             .map(Box::<[_]>::from)
             .collect()
         );

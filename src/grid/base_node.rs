@@ -108,7 +108,8 @@ impl BaseNode {
 }
 
 macro_rules! add_direction {
-    ($name:ident, $direction:ident, $opposite:ident) => {
+    ($name:ident, $direction:ident, $opposite:ident, $lint:meta) => {
+        #[$lint]
         pub fn $name(self_ptr: *mut Self, neighbor_ptr: *mut BaseNode) {
             unsafe {
                 let mut self_node = ptr::read(self_ptr);
@@ -121,6 +122,10 @@ macro_rules! add_direction {
             }
         }
     };
+
+    ($name:ident, $direction:ident, $opposite:ident) => {
+        add_direction!($name, $direction, $opposite, allow());
+    };
 }
 
 impl BaseNode {
@@ -130,12 +135,13 @@ impl BaseNode {
 
     add_direction!(add_right, right, left);
 
-    add_direction!(add_left, left, right);
+    add_direction!(add_left, left, right, allow(dead_code));
 }
 
 pub mod iter {
     use super::*;
 
+    #[allow(dead_code)]
     pub fn up(
         original: *const BaseNode,
         skip: Option<*const BaseNode>,
