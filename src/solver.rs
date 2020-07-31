@@ -39,14 +39,31 @@ where
     pub fn new(possibilities: &'e [E::Possibility], constraints: &'e [E::Constraint]) -> Self {
         let grid = Self::populate_grid(possibilities, constraints);
 
-        Solver {
+        let mut solver = Solver {
             possibilities,
             constraints,
 
             grid,
             partial_solution: Vec::new(),
             stack: Vec::new(),
+        };
+
+        // If the grid is already solved (no primary columns), don't bother to put a
+        // stack frame in
+        if !Self::solution_test(&solver.grid) {
+            let min_column = Self::choose_column(&mut solver.grid);
+            let selected_rows = Self::select_rows_from_column(min_column);
+
+            if !selected_rows.is_empty() {
+                solver.stack.push(Frame {
+                    state: FrameState::Cover,
+                    min_column,
+                    selected_rows,
+                });
+            }
         }
+
+        solver
     }
 
     /// Reset all solver state except for the stored possibilities and
@@ -116,33 +133,23 @@ where
     }
 
     pub fn all_solutions(&mut self) -> Vec<Vec<&E::Possibility>> {
+        self.collect()
+    }
+
+    pub fn next_solution<'s>(&'s mut self) -> Option<Vec<&'e E::Possibility>>
+    where
+        'e: 's,
+    {
         enum StackOp<T> {
             Push(T),
             Pop,
             None,
         }
 
-        let mut solutions = Vec::<Vec<usize>>::new();
-
-        if Self::solution_test(&self.grid) {
-            return vec![];
-        } else {
-            let min_column = Self::choose_column(&mut self.grid);
-            let selected_rows = Self::select_rows_from_column(min_column);
-
-            if !selected_rows.is_empty() {
-                self.stack.push(Frame {
-                    state: FrameState::Cover,
-                    min_column,
-                    selected_rows,
-                });
-            }
-        }
-
         while !self.stack.is_empty() {
             let curr_frame = self.stack.last_mut().unwrap();
 
-            let stack_op = match curr_frame.state {
+            let (stack_op, possible_solution) = match curr_frame.state {
                 // for the current row of this frame, cover the selected columns and add the row
                 // to the solution.
                 FrameState::Cover => {
@@ -156,21 +163,22 @@ where
                     // This is where the recursion happens, but we also have to check for the
                     // solution here.
                     let stack_op = if Self::solution_test(&self.grid) {
-                        solutions.push(self.partial_solution.clone());
-
-                        StackOp::None
+                        (StackOp::None, Some(self.partial_solution.clone()))
                     } else {
                         let min_column = Self::choose_column(&mut self.grid);
                         let selected_rows = Self::select_rows_from_column(min_column);
 
                         if selected_rows.is_empty() {
-                            StackOp::None
+                            (StackOp::None, None)
                         } else {
-                            StackOp::Push(Frame {
-                                state: FrameState::Cover,
-                                min_column,
-                                selected_rows,
-                            })
+                            (
+                                StackOp::Push(Frame {
+                                    state: FrameState::Cover,
+                                    min_column,
+                                    selected_rows,
+                                }),
+                                None,
+                            )
                         }
                     };
 
@@ -188,10 +196,10 @@ where
                     self.partial_solution.pop();
 
                     if curr_frame.selected_rows.is_empty() {
-                        StackOp::Pop
+                        (StackOp::Pop, None)
                     } else {
                         curr_frame.state = FrameState::Cover;
-                        StackOp::None
+                        (StackOp::None, None)
                     }
                 }
             };
@@ -205,16 +213,28 @@ where
                 }
                 StackOp::None => {}
             }
+
+            if let Some(solution) = possible_solution {
+                return Some(
+                    solution
+                        .into_iter()
+                        .map(|row_index| &self.possibilities[row_index])
+                        .collect(),
+                );
+            }
         }
 
-        solutions
-            .into_iter()
-            .map(|solution| {
-                solution
-                    .into_iter()
-                    .map(|row_index| &self.possibilities[row_index])
-                    .collect()
-            })
-            .collect()
+        None
+    }
+}
+
+impl<'e, E> Iterator for Solver<'e, E>
+where
+    E: ExactCover,
+{
+    type Item = Vec<&'e E::Possibility>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_solution()
     }
 }
