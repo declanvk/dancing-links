@@ -5,6 +5,7 @@ use crate::{
 use core::iter;
 use std::collections::VecDeque;
 
+/// Solver that iteratively returns solutions to exact cover problems.
 #[derive(Debug)]
 pub struct Solver<'e, E: ExactCover> {
     possibilities: &'e [E::Possibility],
@@ -132,10 +133,12 @@ where
             .collect()
     }
 
+    /// Return all possible solutions.
     pub fn all_solutions(&mut self) -> Vec<Vec<&E::Possibility>> {
         self.collect()
     }
 
+    /// Compute up to the next solution, returning `None` if there are no more.
     pub fn next_solution<'s>(&'s mut self) -> Option<Vec<&'e E::Possibility>>
     where
         'e: 's,
