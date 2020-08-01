@@ -1,11 +1,14 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
+//! Dancing links `Grid` implementation for use in the `Solver`.
+
 mod base_node;
 
 use base_node::BaseNode;
 use core::{iter::once, ptr};
 use std::collections::VecDeque;
 
+/// Dancing links grid, support efficient removal of rows and columns.
 #[derive(Debug)]
 pub struct Grid {
     // This node only left-right neighbors, no children
@@ -19,6 +22,9 @@ pub struct Grid {
 }
 
 impl Grid {
+    /// Create a new grid with a specified number of columns, and the given
+    /// coordinates filled.
+    ///
     /// Rows and columns are based 1 indexed for this grid, matching the
     /// indexing notation for matrices in general.
     pub fn new(num_columns: usize, coordinates: impl IntoIterator<Item = (usize, usize)>) -> Self {
@@ -178,10 +184,14 @@ impl Grid {
         }
     }
 
+    /// Convert the grid to a dense representation.
+    ///
+    /// This takes the original size of the grid, and only put `true` values for
+    /// locations that are still present in the grid (not covered).
     pub fn to_dense(&self) -> Box<[Box<[bool]>]> {
         let seen_coords = self.uncovered_columns().flat_map(|column_ptr| {
             let column_idx = Column::index(column_ptr);
-            Column::values(column_ptr).map(move |row_idx| (row_idx, column_idx))
+            Column::row_indices(column_ptr).map(move |row_idx| (row_idx, column_idx))
         });
 
         let mut output = vec![false; self.num_columns * self.max_row];
@@ -203,16 +213,20 @@ impl Grid {
         }
     }
 
+    /// Return an iterator of pointers to columns that are uncovered.
     pub fn uncovered_columns(&self) -> impl Iterator<Item = *const Column> {
         base_node::iter::right(self.root.cast(), Some(self.root.cast()))
             .map(|base_ptr| base_ptr.cast::<Column>())
     }
 
+    /// Return an iterator of mut pointers to columns that are uncovered.
     pub fn uncovered_columns_mut(&mut self) -> impl Iterator<Item = *mut Column> {
         base_node::iter::right_mut(self.root.cast(), Some(self.root.cast()))
             .map(|base_ptr| base_ptr.cast::<Column>())
     }
 
+    /// Return an iterator over all columns that are in the grid (covered and
+    /// uncovered).
     pub fn all_columns_mut(
         &mut self,
     ) -> impl Iterator<Item = *mut Column> + DoubleEndedIterator + '_ {
@@ -223,6 +237,7 @@ impl Grid {
             .skip(1)
     }
 
+    /// Return a pointer to a specific `Column`, if it exists.
     pub fn get_column(&self, index: usize) -> Option<*const Column> {
         self.columns
             .get(index)
@@ -230,10 +245,12 @@ impl Grid {
             .map(|column_ptr| column_ptr as *const _)
     }
 
+    /// Return a mut pointer to a specific `Column`, if it exists.
     pub fn get_column_mut(&mut self, index: usize) -> Option<*mut Column> {
         self.columns.get(index).copied()
     }
 
+    /// Return true if there are no uncovered columns in the grid.
     pub fn is_empty(&self) -> bool {
         unsafe {
             let column = ptr::read(self.root);
@@ -243,6 +260,7 @@ impl Grid {
     }
 }
 
+/// A coordinate inside of a `Grid`.
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct Node {
@@ -268,7 +286,10 @@ impl Node {
         node
     }
 
-    fn cover_row(self_ptr: *mut Node) {
+    /// Cover every `Node` that is horizontally adjacent to this `Node`.
+    ///
+    /// This `Node` is not covered.
+    pub fn cover_row(self_ptr: *mut Node) {
         // Skip over the originating node in the row so that it can be recovered from
         // the column.
         base_node::iter::right_mut(self_ptr.cast(), Some(self_ptr.cast())).for_each(
@@ -281,7 +302,10 @@ impl Node {
         )
     }
 
-    fn uncover_row(self_ptr: *mut Self) {
+    /// Uncover every `Node` that is horizontally adjacent to this `Node`.
+    ///
+    /// This `Node` is not uncovered.
+    pub fn uncover_row(self_ptr: *mut Self) {
         let base_ptr = self_ptr.cast::<BaseNode>();
 
         base_node::iter::left_mut(base_ptr, Some(base_ptr)).for_each(|base_ptr| unsafe {
@@ -292,10 +316,12 @@ impl Node {
         })
     }
 
+    /// Return the row index of this `Node`.
     pub fn row_index(self_ptr: *const Self) -> usize {
         unsafe { ptr::read(self_ptr).row }
     }
 
+    /// Return the column index of this `Node`.
     pub fn column_index(self_ptr: *const Self) -> usize {
         unsafe {
             let node = ptr::read(self_ptr);
@@ -305,6 +331,7 @@ impl Node {
         }
     }
 
+    /// Return a mut pointer to the `Column` of this `Node`.
     pub fn column_ptr(self_ptr: *const Self) -> *mut Column {
         unsafe {
             let node = ptr::read(self_ptr);
@@ -313,11 +340,13 @@ impl Node {
         }
     }
 
+    /// Return an iterator over all `Node`s that are adjacent to this `Node`.
     pub fn neighbors(self_ptr: *const Self) -> impl Iterator<Item = *const Node> {
         base_node::iter::left(self_ptr.cast(), None).map(|base_ptr| base_ptr.cast())
     }
 }
 
+/// A column inside of a `Grid`.
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct Column {
@@ -362,7 +391,7 @@ impl Column {
         }
     }
 
-    // Cover entire column, and any rows that that appear in this column
+    /// Cover entire column, and any rows that that appear in this column.
     pub fn cover(self_ptr: *mut Self) {
         let mut column = unsafe { ptr::read(self_ptr) };
         assert!(!column.is_covered);
@@ -380,7 +409,7 @@ impl Column {
         }
     }
 
-    // Uncover entire column, and any rows that appear in this column
+    /// Uncover entire column, and any rows that appear in this column.
     pub fn uncover(self_ptr: *mut Self) {
         let mut column = unsafe { ptr::read(self_ptr) };
         assert!(column.is_covered);
@@ -402,32 +431,47 @@ impl Column {
         BaseNode::add_right(self_ptr.cast(), neighbor_ptr.cast());
     }
 
+    /// Return true if there are no uncovered `Node`s in this column.
     pub fn is_empty(self_ptr: *const Self) -> bool {
         unsafe {
             let column = ptr::read(self_ptr);
 
-            (column.base.down as *const _) == self_ptr
+            let empty = (column.base.down as *const _) == self_ptr;
+
+            debug_assert!(
+                (empty && Self::size(self_ptr) == 0) || !empty,
+                "The size should be tracked accurately."
+            );
+
+            empty
         }
     }
 
-    pub fn values(self_ptr: *const Self) -> impl Iterator<Item = usize> {
+    /// Return an iterator over the row indices of all uncovered `Node`s in this
+    /// column.
+    pub fn row_indices(self_ptr: *const Self) -> impl Iterator<Item = usize> {
         Column::rows(self_ptr).map(|node_ptr| unsafe { ptr::read(node_ptr).row })
     }
 
+    /// Return an iterator of pointers to all uncovered `Node`s in this column.
     pub fn rows(self_ptr: *const Self) -> impl Iterator<Item = *const Node> {
         base_node::iter::down(self_ptr.cast(), Some(self_ptr.cast()))
             .map(|base_ptr| base_ptr.cast())
     }
 
+    /// Return an iterator of mut pointers to all uncovered `Node`s in this
+    /// column.
     pub fn nodes_mut(self_ptr: *mut Self) -> impl Iterator<Item = *mut Node> {
         base_node::iter::down_mut(self_ptr.cast(), Some(self_ptr.cast()))
             .map(|base_ptr| base_ptr.cast())
     }
 
+    /// Return the column index.
     pub fn index(self_ptr: *const Self) -> usize {
         unsafe { ptr::read(self_ptr).index }
     }
 
+    /// Return the number of uncovered nodes in this column.
     pub fn size(self_ptr: *const Self) -> usize {
         unsafe { ptr::read(self_ptr).size }
     }
