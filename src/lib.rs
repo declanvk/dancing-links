@@ -2,9 +2,11 @@
 
 pub mod grid;
 pub mod latin_square;
-pub mod solver;
+pub(crate) mod solver;
 pub mod sudoku;
 pub(crate) mod util;
+
+pub use solver::Solver;
 
 pub trait ExactCover {
     type Possibility: core::fmt::Debug;
