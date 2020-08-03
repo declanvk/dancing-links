@@ -1,4 +1,4 @@
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 //! Implementation of [Dancing Links](https://en.wikipedia.org/wiki/Dancing_Links)
 //! and [Algorithm X](https://en.wikipedia.org/wiki/Knuth%27s_Algorithm_X) for solving

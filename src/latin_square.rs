@@ -1,16 +1,28 @@
+//! A [Latin square](https://en.wikipedia.org/wiki/Latin_square) is a
+//!  n × n array filled with n different symbols, each occurring exactly once in
+//! each row and exactly once in each column.
+
 use crate::ExactCover;
 use core::iter;
 use std::collections::HashSet;
 
-pub struct LatinSquare;
+/// Instance of a Latin square puzzle.
+#[derive(Debug)]
+pub struct LatinSquare {
+    /// The list of possible positions + values that could solve the Latin
+    /// square puzzle.
+    pub possibilities: Vec<Possibility>,
+    /// The list of constraints that must be satisfied for this Latin square
+    /// puzzle.
+    pub constraints: Vec<Constraint>,
+}
 
 impl LatinSquare {
-    // Symbols are in the range (0..side_length)
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(
-        side_length: usize,
-        filled_values: impl IntoIterator<Item = Possibility>,
-    ) -> (Vec<Possibility>, Vec<Constraint>) {
+    /// Create a new Latin square puzzle.
+    ///
+    /// The puzzle has dimensions `side_length` x `side_length` and the given
+    /// list of filled values.
+    pub fn new(side_length: usize, filled_values: impl IntoIterator<Item = Possibility>) -> Self {
         let filled_values: Vec<_> = filled_values
             .into_iter()
             .inspect(|poss| {
@@ -40,7 +52,10 @@ impl LatinSquare {
             .filter(|cons| !satisfied.contains(cons))
             .collect();
 
-        (possibilities, constraints)
+        Self {
+            possibilities,
+            constraints,
+        }
     }
 }
 
@@ -63,19 +78,35 @@ impl ExactCover for LatinSquare {
     }
 }
 
+/// A position and value for a box inside of a Latin square puzzle.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Possibility {
-    pub(crate) row: usize,
-    pub(crate) column: usize,
-    pub(crate) value: usize,
+    /// The row position of the box.
+    ///
+    /// The values ranges from 0 to `side_length - 1`.
+    pub row: usize,
+
+    /// The column position of the box.
+    ///
+    /// The values ranges from 0 to `side_length - 1`.
+    pub column: usize,
+
+    /// The value present inside of the box.
+    ///
+    /// The values ranges from 1 to `side_length`.
+    pub value: usize,
 }
 
 impl Possibility {
+    /// Return an iterator over all possible `Possibility`s for the given
+    /// `side_length`.
     pub fn all(side_length: usize) -> impl Iterator<Item = Self> {
         crate::util::three_combination_iter([side_length, side_length, side_length + 1], [0, 0, 1])
             .map(|[column, row, value]| Possibility { row, column, value })
     }
 
+    /// Return an iterator over all `Constraint`s that are satisfied by this
+    /// `Possibility`.
     pub fn satisfied_constraints(self) -> impl Iterator<Item = Constraint> {
         iter::successors(
             Some(Constraint::RowNumber {
@@ -97,14 +128,37 @@ impl Possibility {
     }
 }
 
+/// A condition which must be satisfied in order to solve a Latin square puzzle.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Constraint {
-    RowNumber { row: usize, value: usize },
-    ColumnNumber { column: usize, value: usize },
-    RowColumn { row: usize, column: usize },
+    /// A condition that each row should only have a single instance of a
+    /// numeric value.
+    RowNumber {
+        /// The row index
+        row: usize,
+        /// The unique numeric value
+        value: usize,
+    },
+    /// A condition that each column should only have a single instance of a
+    /// numeric value.
+    ColumnNumber {
+        /// The column index
+        column: usize,
+        /// The unique numeric value
+        value: usize,
+    },
+    /// A condition that each row, column pair should exist exactly once.
+    RowColumn {
+        /// The row index
+        row: usize,
+        /// The column index
+        column: usize,
+    },
 }
 
 impl Constraint {
+    /// Return an iterator over all possibly `Constraint`s for the given
+    /// `side_length`.
     pub fn all(side_length: usize) -> impl Iterator<Item = Constraint> {
         let row_number_it =
             crate::util::two_combination_iter([side_length, side_length + 1], [0, 1])
@@ -162,17 +216,16 @@ pub(crate) mod tests {
 
     #[test]
     fn check_generated_possibilities_constraints() {
-        let (mut possibilities, mut constraints) =
-            LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 2)]);
+        let mut square = LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 2)]);
 
-        possibilities.sort();
+        square.possibilities.sort();
         assert_eq!(
-            possibilities,
+            square.possibilities,
             vec![p(1, 0, 1), p(1, 0, 2), p(1, 1, 1), p(1, 1, 2)]
         );
-        constraints.sort();
+        square.constraints.sort();
         assert_eq!(
-            constraints,
+            square.constraints,
             vec![
                 c_row(1, 1),
                 c_row(1, 2),
@@ -186,8 +239,9 @@ pub(crate) mod tests {
 
     #[test]
     fn solve_small_latin_square() {
-        let (possibilities, constraints) = LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 2)]);
-        let mut solver = crate::solver::Solver::<LatinSquare>::new(&possibilities, &constraints);
+        let square = LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 2)]);
+        let mut solver =
+            crate::solver::Solver::<LatinSquare>::new(&square.possibilities, &square.constraints);
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 1);
@@ -196,8 +250,9 @@ pub(crate) mod tests {
 
     #[test]
     fn solve_multi_solution_latin_square() {
-        let (possibilities, constraints) = LatinSquare::new(2, vec![]);
-        let mut solver = crate::solver::Solver::<LatinSquare>::new(&possibilities, &constraints);
+        let square = LatinSquare::new(2, vec![]);
+        let mut solver =
+            crate::solver::Solver::<LatinSquare>::new(&square.possibilities, &square.constraints);
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 2);
@@ -214,8 +269,9 @@ pub(crate) mod tests {
 
     #[test]
     fn solve_impossible_latin_square() {
-        let (possibilities, constraints) = LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 1)]);
-        let mut solver = crate::solver::Solver::<LatinSquare>::new(&possibilities, &constraints);
+        let square = LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 1)]);
+        let mut solver =
+            crate::solver::Solver::<LatinSquare>::new(&square.possibilities, &square.constraints);
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 0);

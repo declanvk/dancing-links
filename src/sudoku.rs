@@ -1,21 +1,37 @@
-use super::{latin_square, ExactCover};
+//! A [Sudoku puzzle](https://en.wikipedia.org/wiki/Sudoku) is a
+//! `n^2` x `n^2` array with sub-arrays of size `n` x `n`. Each row, column, and
+//! sub-array contains the values `1` through `n` with no repeats.
+
+use super::{
+    latin_square::{self, LatinSquare},
+    ExactCover,
+};
 use core::iter;
 use std::collections::HashSet;
 
+/// An instance of a Sudoku puzzle.
 #[derive(Debug)]
-pub struct Sudoku;
+pub struct Sudoku {
+    /// The list of possible values and positions that are valid for this Sudoku
+    /// puzzle.
+    possibilities: Vec<Possibility>,
+    /// The list of constraints that must be satisfied for this Sudoku puzzle.
+    constraints: Vec<Constraint>,
+}
 
 impl Sudoku {
-    #[allow(clippy::new_ret_no_self)]
+    /// Create a new new Sudoku puzzle.
+    ///
+    /// The puzzle has size n^2 x n^2 (where `n = box_side_length`) and the
+    /// given list of filled values.
     pub fn new(
         box_side_length: usize,
         filled_values: impl IntoIterator<Item = latin_square::Possibility>,
-    ) -> (Vec<Possibility>, Vec<Constraint>) {
+    ) -> Self {
         let side_length = box_side_length * box_side_length;
         let filled_values: Vec<_> = filled_values.into_iter().collect();
 
-        let (latin_possibilities, latin_constraints) =
-            latin_square::LatinSquare::new(side_length, filled_values.iter().copied());
+        let latin = latin_square::LatinSquare::new(side_length, filled_values.iter().copied());
 
         let satisfied: HashSet<_> = filled_values
             .iter()
@@ -24,19 +40,24 @@ impl Sudoku {
             .flat_map(Possibility::satisfied_constraints)
             .collect();
 
-        let possibilities = latin_possibilities
+        let possibilities = latin
+            .possibilities
             .into_iter()
             .map(|latin_poss| Possibility::from_latin(latin_poss, box_side_length))
             .collect();
 
-        let constraints = latin_constraints
+        let constraints = latin
+            .constraints
             .into_iter()
             .map(Constraint::from)
             .chain(Constraint::all_square_number(box_side_length))
             .filter(|cons| !satisfied.contains(cons))
             .collect();
 
-        (possibilities, constraints)
+        Self {
+            possibilities,
+            constraints,
+        }
     }
 }
 
@@ -48,8 +69,8 @@ impl ExactCover for Sudoku {
         use Constraint::*;
 
         match cons {
-            Latin(latin_cons) => latin_square::LatinSquare::satisfies(&poss.latin, latin_cons),
-            SquareNumber { square, value } => poss.square == *square && poss.latin.value == *value,
+            Latin(latin_cons) => LatinSquare::satisfies(&Possibility::into(*poss), latin_cons),
+            SquareNumber { square, value } => poss.square == *square && poss.value == *value,
         }
     }
 
@@ -58,45 +79,77 @@ impl ExactCover for Sudoku {
     }
 }
 
+/// A position and value for a box inside of a Sudoku puzzle.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Possibility {
-    pub(crate) latin: latin_square::Possibility,
-    pub(crate) square: usize,
+    /// The row position of the box.
+    ///
+    /// The values ranges from 0 to `n - 1`, where `n` is the length of the
+    /// Sudoku board.
+    pub row: usize,
+
+    /// The column position of the box.
+    ///
+    /// The values ranges from 0 to `n - 1`, where `n` is the length of the
+    /// Sudoku board.
+    pub column: usize,
+
+    /// The index of the subgrid.
+    ///
+    /// The values ranges from 0 to `n - 1`, where `n` is the length of the
+    /// Sudoku board. This field is redundant in identifying where the box is
+    /// inside of the Sudoku board, however it is necessary to speed up checking
+    /// which `Constraint`s are satisfied by this `Possibility`.
+    pub square: usize,
+
+    /// The value present inside of the box.
+    ///
+    /// The values ranges from 1 to `n`, where `n` is the length of the
+    /// Sudoku board.
+    pub value: usize,
 }
 
 impl Possibility {
+    /// Convert a `latin_square::Possibility` to a `sudoku::Possibility`.
     pub fn from_latin(latin: latin_square::Possibility, box_side_length: usize) -> Self {
         let side_length = box_side_length * box_side_length;
         let index = latin.row * side_length + latin.column;
         let square = ((index % side_length) / box_side_length)
             + box_side_length * (index / (side_length * box_side_length));
 
-        Possibility { latin, square }
+        Possibility {
+            row: latin.row,
+            column: latin.column,
+            value: latin.value,
+            square,
+        }
     }
 
+    /// Return an iterator over the `Constraint`s that are satisfied by this
+    /// `Possibility`.
     pub fn satisfied_constraints(self) -> impl Iterator<Item = Constraint> {
         iter::successors(
             Some(Constraint::Latin(latin_square::Constraint::RowNumber {
-                row: self.latin.row,
-                value: self.latin.value,
+                row: self.row,
+                value: self.value,
             })),
             move |cons| match cons {
                 Constraint::Latin(latin_square::Constraint::RowNumber { .. }) => {
                     Some(Constraint::Latin(latin_square::Constraint::ColumnNumber {
-                        column: self.latin.column,
-                        value: self.latin.value,
+                        column: self.column,
+                        value: self.value,
                     }))
                 }
                 Constraint::Latin(latin_square::Constraint::ColumnNumber { .. }) => {
                     Some(Constraint::Latin(latin_square::Constraint::RowColumn {
-                        row: self.latin.row,
-                        column: self.latin.column,
+                        row: self.row,
+                        column: self.column,
                     }))
                 }
                 Constraint::Latin(latin_square::Constraint::RowColumn { .. }) => {
                     Some(Constraint::SquareNumber {
                         square: self.square,
-                        value: self.latin.value,
+                        value: self.value,
                     })
                 }
                 Constraint::SquareNumber { .. } => None,
@@ -107,14 +160,27 @@ impl Possibility {
 
 impl Into<latin_square::Possibility> for Possibility {
     fn into(self) -> latin_square::Possibility {
-        self.latin
+        latin_square::Possibility {
+            row: self.row,
+            column: self.column,
+            value: self.value,
+        }
     }
 }
 
+/// A condition which must be satisfied in order to solve a Sudoku puzzle.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Constraint {
+    /// A constraint which is also shared by a Latin Square puzzle.
     Latin(latin_square::Constraint),
-    SquareNumber { square: usize, value: usize },
+    /// A condition that each square (or sub-grid) should only have a single
+    /// instance of a numeric value.
+    SquareNumber {
+        /// The square index.
+        square: usize,
+        /// The unique numeric value
+        value: usize,
+    },
 }
 
 impl Constraint {
@@ -138,8 +204,10 @@ mod tests {
 
     fn p(row: usize, column: usize, square: usize, value: usize) -> Possibility {
         Possibility {
-            latin: latin_square::Possibility { row, column, value },
+            row,
+            column,
             square,
+            value,
         }
     }
 
@@ -161,7 +229,7 @@ mod tests {
 
     #[test]
     fn check_generated_possibilities_constraints() {
-        let (mut possibilities, mut constraints) = Sudoku::new(
+        let mut sudoku = Sudoku::new(
             2,
             vec![
                 // top row
@@ -182,9 +250,9 @@ mod tests {
             ],
         );
 
-        possibilities.sort();
+        sudoku.possibilities.sort();
         assert_eq!(
-            possibilities,
+            sudoku.possibilities,
             vec![
                 p(1, 1, 0, 1),
                 p(1, 1, 0, 2),
@@ -204,9 +272,9 @@ mod tests {
                 p(2, 2, 3, 4),
             ]
         );
-        constraints.sort();
+        sudoku.constraints.sort();
         assert_eq!(
-            constraints,
+            sudoku.constraints,
             vec![
                 c_row(1, 1),
                 c_row(1, 4),
@@ -230,7 +298,7 @@ mod tests {
 
     #[test]
     fn solve_small_sudoku() {
-        let (possibilities, constraints) = Sudoku::new(
+        let sudoku = Sudoku::new(
             2,
             vec![
                 // top row
@@ -251,7 +319,8 @@ mod tests {
             ],
         );
 
-        let mut solver = crate::solver::Solver::<Sudoku>::new(&possibilities, &constraints);
+        let mut solver =
+            crate::solver::Solver::<Sudoku>::new(&sudoku.possibilities, &sudoku.constraints);
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 1);
