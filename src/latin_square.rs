@@ -20,7 +20,7 @@ pub struct LatinSquare {
 impl LatinSquare {
     /// Create a new Latin square puzzle.
     ///
-    /// The puzzle has dimensions `side_length` x `side_length` and the given
+    /// The puzzle has dimensions `side_length` × `side_length` and the given
     /// list of filled values.
     pub fn new(side_length: usize, filled_values: impl IntoIterator<Item = Possibility>) -> Self {
         let filled_values: Vec<_> = filled_values

@@ -1,5 +1,5 @@
 //! A [Sudoku puzzle](https://en.wikipedia.org/wiki/Sudoku) is a
-//! `n^2` x `n^2` array with sub-arrays of size `n` x `n`. Each row, column, and
+//! `n^2` × `n^2` array with sub-arrays of size `n` × `n`. Each row, column, and
 //! sub-array contains the values `1` through `n` with no repeats.
 
 use super::{
@@ -22,7 +22,7 @@ pub struct Sudoku {
 impl Sudoku {
     /// Create a new new Sudoku puzzle.
     ///
-    /// The puzzle has size n^2 x n^2 (where `n = box_side_length`) and the
+    /// The puzzle has size `n^2` × `n^2` (where `n = box_side_length`) and the
     /// given list of filled values.
     pub fn new(
         box_side_length: usize,
