@@ -242,6 +242,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)] // takes too long on miri
     fn count_medium_board() {
         let queens = NQueens::new(8, iter::empty());
 
