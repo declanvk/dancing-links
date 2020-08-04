@@ -2,10 +2,7 @@
 //! `n^2` × `n^2` array with sub-arrays of size `n` × `n`. Each row, column, and
 //! sub-array contains the values `1` through `n` with no repeats.
 
-use super::{
-    latin_square::{self, LatinSquare},
-    ExactCover,
-};
+use super::{latin_square, ExactCover};
 use core::iter;
 use std::collections::HashSet;
 
@@ -65,17 +62,27 @@ impl ExactCover for Sudoku {
     type Constraint = Constraint;
     type Possibility = Possibility;
 
-    fn satisfies(poss: &Self::Possibility, cons: &Self::Constraint) -> bool {
+    fn satisfies(&self, poss: &Self::Possibility, cons: &Self::Constraint) -> bool {
         use Constraint::*;
 
         match cons {
-            Latin(latin_cons) => LatinSquare::satisfies(&Possibility::into(*poss), latin_cons),
+            Latin(latin_cons) => {
+                <Possibility as Into<latin_square::Possibility>>::into(*poss).satisfies(latin_cons)
+            }
             SquareNumber { square, value } => poss.square == *square && poss.value == *value,
         }
     }
 
-    fn is_optional(_cons: &Self::Constraint) -> bool {
+    fn is_optional(&self, _cons: &Self::Constraint) -> bool {
         false
+    }
+
+    fn possibilities(&self) -> &[Self::Possibility] {
+        &self.possibilities
+    }
+
+    fn constraints(&self) -> &[Self::Constraint] {
+        &self.constraints
     }
 }
 
@@ -319,8 +326,7 @@ mod tests {
             ],
         );
 
-        let mut solver =
-            crate::solver::Solver::<Sudoku>::new(&sudoku.possibilities, &sudoku.constraints);
+        let mut solver = sudoku.solver();
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 1);

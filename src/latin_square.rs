@@ -63,18 +63,20 @@ impl ExactCover for LatinSquare {
     type Constraint = Constraint;
     type Possibility = Possibility;
 
-    fn satisfies(poss: &Self::Possibility, cons: &Self::Constraint) -> bool {
-        use Constraint::*;
-
-        match cons {
-            RowNumber { row, value } => poss.row == *row && poss.value == *value,
-            ColumnNumber { column, value } => poss.column == *column && poss.value == *value,
-            RowColumn { row, column } => poss.row == *row && poss.column == *column,
-        }
+    fn satisfies(&self, poss: &Self::Possibility, cons: &Self::Constraint) -> bool {
+        poss.satisfies(cons)
     }
 
-    fn is_optional(_cons: &Self::Constraint) -> bool {
+    fn is_optional(&self, _cons: &Self::Constraint) -> bool {
         false
+    }
+
+    fn possibilities(&self) -> &[Self::Possibility] {
+        &self.possibilities
+    }
+
+    fn constraints(&self) -> &[Self::Constraint] {
+        &self.constraints
     }
 }
 
@@ -125,6 +127,17 @@ impl Possibility {
                 Constraint::RowColumn { .. } => None,
             },
         )
+    }
+
+    /// Return true if this `Possibility` satisfies the given `Constraint`.
+    pub fn satisfies(&self, constraint: &Constraint) -> bool {
+        use Constraint::*;
+
+        match constraint {
+            RowNumber { row, value } => self.row == *row && self.value == *value,
+            ColumnNumber { column, value } => self.column == *column && self.value == *value,
+            RowColumn { row, column } => self.row == *row && self.column == *column,
+        }
     }
 }
 
@@ -240,8 +253,7 @@ pub(crate) mod tests {
     #[test]
     fn solve_small_latin_square() {
         let square = LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 2)]);
-        let mut solver =
-            crate::solver::Solver::<LatinSquare>::new(&square.possibilities, &square.constraints);
+        let mut solver = square.solver();
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 1);
@@ -251,8 +263,7 @@ pub(crate) mod tests {
     #[test]
     fn solve_multi_solution_latin_square() {
         let square = LatinSquare::new(2, vec![]);
-        let mut solver =
-            crate::solver::Solver::<LatinSquare>::new(&square.possibilities, &square.constraints);
+        let mut solver = square.solver();
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 2);
@@ -270,8 +281,7 @@ pub(crate) mod tests {
     #[test]
     fn solve_impossible_latin_square() {
         let square = LatinSquare::new(2, vec![p(0, 0, 1), p(0, 1, 1)]);
-        let mut solver =
-            crate::solver::Solver::<LatinSquare>::new(&square.possibilities, &square.constraints);
+        let mut solver = square.solver();
         let solutions = solver.all_solutions();
 
         assert_eq!(solutions.len(), 0);

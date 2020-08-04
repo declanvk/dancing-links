@@ -12,7 +12,7 @@ pub(crate) mod util;
 
 pub use solver::Solver;
 
-/// An exact cover problem.
+/// An instance of an exact cover problem.
 pub trait ExactCover {
     /// The type of values that are elements of a solution to the exact cover
     /// problem.
@@ -24,8 +24,24 @@ pub trait ExactCover {
 
     /// Return true if the given `Possibility` will satisfy the given
     /// `Constraint`.
-    fn satisfies(poss: &Self::Possibility, cons: &Self::Constraint) -> bool;
+    fn satisfies(&self, poss: &Self::Possibility, cons: &Self::Constraint) -> bool;
 
     /// Return true if the given `Constraint` is optional.
-    fn is_optional(cons: &Self::Constraint) -> bool;
+    fn is_optional(&self, cons: &Self::Constraint) -> bool;
+
+    /// Return a list of possibilities for this instance of the problem.
+    fn possibilities(&self) -> &[Self::Possibility];
+
+    /// Return a list of constraints that must be satisfied for this instance of
+    /// the problem.
+    fn constraints(&self) -> &[Self::Constraint];
+
+    /// Return an iterator over all solutions to this instance of the exact
+    /// cover problem.
+    fn solver(&self) -> Solver<Self>
+    where
+        Self: Sized,
+    {
+        Solver::new(self)
+    }
 }

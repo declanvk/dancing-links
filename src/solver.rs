@@ -8,8 +8,7 @@ use std::collections::VecDeque;
 /// Solver that iteratively returns solutions to exact cover problems.
 #[derive(Debug)]
 pub struct Solver<'e, E: ExactCover> {
-    possibilities: &'e [E::Possibility],
-    constraints: &'e [E::Constraint],
+    problem: &'e E,
 
     // Values used to track the state of solving
     grid: Grid,
@@ -36,13 +35,12 @@ impl<'e, E> Solver<'e, E>
 where
     E: ExactCover,
 {
-    /// Create a new Solver with the given possibilities and constraints.
-    pub fn new(possibilities: &'e [E::Possibility], constraints: &'e [E::Constraint]) -> Self {
-        let grid = Self::populate_grid(possibilities, constraints);
+    /// Create a new `Solver` with the given instance of an exact cover problem.
+    pub fn new(problem: &'e E) -> Self {
+        let grid = Self::populate_grid(problem);
 
-        let mut solver = Solver {
-            possibilities,
-            constraints,
+        let mut solver = Self {
+            problem,
 
             grid,
             partial_solution: Vec::new(),
@@ -51,8 +49,8 @@ where
 
         // If the grid is already solved (no primary columns), don't bother to put a
         // stack frame in
-        if !Self::solution_test(&solver.grid) {
-            let min_column = Self::choose_column(&mut solver.grid);
+        if !Self::solution_test(&solver.grid, &solver.problem) {
+            let min_column = Self::choose_column(&mut solver.grid, &solver.problem);
             let selected_rows = Self::select_rows_from_column(min_column);
 
             if !selected_rows.is_empty() {
@@ -70,18 +68,20 @@ where
     /// Reset all solver state except for the stored possibilities and
     /// constraints.
     pub fn reset(&mut self) {
-        self.grid = Self::populate_grid(&self.possibilities, &self.constraints);
+        self.grid = Self::populate_grid(&self.problem);
         self.partial_solution.clear();
         self.stack.clear();
     }
 
-    fn populate_grid(possibilities: &[E::Possibility], constraints: &[E::Constraint]) -> Grid {
-        let coordinates_iter = possibilities
+    fn populate_grid(problem: &E) -> Grid {
+        let coordinates_iter = problem
+            .possibilities()
             .iter()
             .enumerate()
             .flat_map({
                 move |(row_idx, poss)| {
-                    constraints
+                    problem
+                        .constraints()
                         .iter()
                         .enumerate()
                         .zip(iter::repeat((row_idx, poss)))
@@ -93,28 +93,27 @@ where
                 }
             })
             .filter_map(|(coord, poss, cons)| {
-                if E::satisfies(poss, cons) {
+                if problem.satisfies(poss, cons) {
                     Some(coord)
                 } else {
                     None
                 }
             });
 
-        Grid::new(constraints.len(), coordinates_iter)
+        Grid::new(problem.constraints().len(), coordinates_iter)
     }
 
-    fn solution_test(grid: &Grid) -> bool {
-        grid.is_empty()
-
-        // !self
-        //     .grid
-        //     .uncovered_columns()
-        //     .any(|column| !E::is_optional(&self.constraints[column.index()]))
+    fn solution_test(grid: &Grid, problem: &E) -> bool {
+        !grid
+            .uncovered_columns()
+            .any(|column| !problem.is_optional(&problem.constraints()[Column::index(column) - 1]))
     }
 
-    fn choose_column(grid: &mut Grid) -> *mut Column {
+    fn choose_column(grid: &mut Grid, problem: &E) -> *mut Column {
         grid.uncovered_columns_mut()
-            //     .filter(|column| !E::is_optional(&self.constraints[column.index()]))
+            .filter(|column| {
+                !problem.is_optional(&problem.constraints()[Column::index(*column as *const _) - 1])
+            })
             .min_by_key(|column_ptr| Column::size(*column_ptr))
             .unwrap()
     }
@@ -134,7 +133,7 @@ where
     }
 
     /// Return all possible solutions.
-    pub fn all_solutions(&mut self) -> Vec<Vec<&E::Possibility>> {
+    pub fn all_solutions(&mut self) -> Vec<Vec<&'e E::Possibility>> {
         self.collect()
     }
 
@@ -165,10 +164,10 @@ where
 
                     // This is where the recursion happens, but we also have to check for the
                     // solution here.
-                    let stack_op = if Self::solution_test(&self.grid) {
+                    let stack_op = if Self::solution_test(&self.grid, &self.problem) {
                         (StackOp::None, Some(self.partial_solution.clone()))
                     } else {
-                        let min_column = Self::choose_column(&mut self.grid);
+                        let min_column = Self::choose_column(&mut self.grid, &self.problem);
                         let selected_rows = Self::select_rows_from_column(min_column);
 
                         if selected_rows.is_empty() {
@@ -221,7 +220,7 @@ where
                 return Some(
                     solution
                         .into_iter()
-                        .map(|row_index| &self.possibilities[row_index])
+                        .map(|row_index| &self.problem.possibilities()[row_index])
                         .collect(),
                 );
             }
