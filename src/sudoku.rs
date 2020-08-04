@@ -14,9 +14,9 @@ use std::collections::HashSet;
 pub struct Sudoku {
     /// The list of possible values and positions that are valid for this Sudoku
     /// puzzle.
-    possibilities: Vec<Possibility>,
+    pub possibilities: Vec<Possibility>,
     /// The list of constraints that must be satisfied for this Sudoku puzzle.
-    constraints: Vec<Constraint>,
+    pub constraints: Vec<Constraint>,
 }
 
 impl Sudoku {
