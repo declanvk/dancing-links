@@ -28,6 +28,7 @@ jobs:
 
   test:
     name: Test Suite
+    needs: check
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,6 +56,7 @@ jobs:
 
   test_miri:
     name: Test Suite (Miri)
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -82,6 +84,7 @@ jobs:
 
   lints:
     name: Lints
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
