@@ -6,6 +6,7 @@
 
 pub mod grid;
 pub mod latin_square;
+pub mod queens;
 pub(crate) mod solver;
 pub mod sudoku;
 pub(crate) mod util;
