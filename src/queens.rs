@@ -86,9 +86,9 @@ impl ExactCover for NQueens {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Possibility {
     /// The row index, ranging from 0 to `n - 1`.
-    row: usize,
+    pub row: usize,
     /// The column index, ranging form 0 to `n - 1`.
-    column: usize,
+    pub column: usize,
 }
 
 impl Possibility {
