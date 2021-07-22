@@ -14,7 +14,7 @@
 [docs-url]: https://docs.rs/dancing-links
 [license-badge]: https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue.svg
 [license]: #license
-[rustc-badge]: https://img.shields.io/badge/rustc-1.43+-lightgray.svg
+[rustc-badge]: https://img.shields.io/badge/rustc-1.44+-lightgray.svg
 
 Implementation of [Dancing Links](https://en.wikipedia.org/wiki/Dancing_Links) and [Algorithm X](https://en.wikipedia.org/wiki/Knuth%27s_Algorithm_X) for solving [exact cover](https://en.wikipedia.org/wiki/Exact_cover) problems.
 
