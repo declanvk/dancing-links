@@ -165,12 +165,12 @@ impl Possibility {
     }
 }
 
-impl Into<latin_square::Possibility> for Possibility {
-    fn into(self) -> latin_square::Possibility {
+impl From<Possibility> for latin_square::Possibility {
+    fn from(src: Possibility) -> Self {
         latin_square::Possibility {
-            row: self.row,
-            column: self.column,
-            value: self.value,
+            row: src.row,
+            column: src.column,
+            value: src.value,
         }
     }
 }

@@ -49,8 +49,8 @@ where
 
         // If the grid is already solved (no primary columns), don't bother to put a
         // stack frame in
-        if !Self::solution_test(&solver.grid, &solver.problem) {
-            let min_column = Self::choose_column(&mut solver.grid, &solver.problem);
+        if !Self::solution_test(&solver.grid, solver.problem) {
+            let min_column = Self::choose_column(&mut solver.grid, solver.problem);
             let selected_rows = Self::select_rows_from_column(min_column);
 
             if !selected_rows.is_empty() {
@@ -68,7 +68,7 @@ where
     /// Reset all solver state except for the stored possibilities and
     /// constraints.
     pub fn reset(&mut self) {
-        self.grid = Self::populate_grid(&self.problem);
+        self.grid = Self::populate_grid(self.problem);
         self.partial_solution.clear();
         self.stack.clear();
     }
@@ -164,10 +164,10 @@ where
 
                     // This is where the recursion happens, but we also have to check for the
                     // solution here.
-                    let stack_op = if Self::solution_test(&self.grid, &self.problem) {
+                    let stack_op = if Self::solution_test(&self.grid, self.problem) {
                         (StackOp::None, Some(self.partial_solution.clone()))
                     } else {
-                        let min_column = Self::choose_column(&mut self.grid, &self.problem);
+                        let min_column = Self::choose_column(&mut self.grid, self.problem);
                         let selected_rows = Self::select_rows_from_column(min_column);
 
                         if selected_rows.is_empty() {
