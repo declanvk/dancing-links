@@ -26,6 +26,7 @@ enum FrameState {
 
 #[derive(Debug)]
 struct Frame {
+    #[allow(dead_code)]
     min_column: *mut Column,
     selected_rows: VecDeque<(usize, Vec<*mut Column>)>,
     state: FrameState,
