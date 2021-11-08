@@ -3,7 +3,6 @@
 //! each row and exactly once in each column.
 
 use crate::ExactCover;
-use core::iter;
 use std::collections::HashSet;
 
 /// Instance of a Latin square puzzle.
@@ -110,23 +109,21 @@ impl Possibility {
     /// Return an iterator over all `Constraint`s that are satisfied by this
     /// `Possibility`.
     pub fn satisfied_constraints(self) -> impl Iterator<Item = Constraint> {
-        iter::successors(
-            Some(Constraint::RowNumber {
+        [
+            Constraint::RowNumber {
                 row: self.row,
                 value: self.value,
-            }),
-            move |cons| match cons {
-                Constraint::RowNumber { .. } => Some(Constraint::ColumnNumber {
-                    column: self.column,
-                    value: self.value,
-                }),
-                Constraint::ColumnNumber { .. } => Some(Constraint::RowColumn {
-                    row: self.row,
-                    column: self.column,
-                }),
-                Constraint::RowColumn { .. } => None,
             },
-        )
+            Constraint::ColumnNumber {
+                column: self.column,
+                value: self.value,
+            },
+            Constraint::RowColumn {
+                row: self.row,
+                column: self.column,
+            },
+        ]
+        .into_iter()
     }
 
     /// Return true if this `Possibility` satisfies the given `Constraint`.

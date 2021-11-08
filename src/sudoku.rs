@@ -3,7 +3,6 @@
 //! sub-array contains the values `1` through `n` with no repeats.
 
 use super::{latin_square, ExactCover};
-use core::iter;
 use std::collections::HashSet;
 
 /// An instance of a Sudoku puzzle.
@@ -135,33 +134,25 @@ impl Possibility {
     /// Return an iterator over the `Constraint`s that are satisfied by this
     /// `Possibility`.
     pub fn satisfied_constraints(self) -> impl Iterator<Item = Constraint> {
-        iter::successors(
-            Some(Constraint::Latin(latin_square::Constraint::RowNumber {
+        [
+            Constraint::Latin(latin_square::Constraint::RowNumber {
                 row: self.row,
                 value: self.value,
-            })),
-            move |cons| match cons {
-                Constraint::Latin(latin_square::Constraint::RowNumber { .. }) => {
-                    Some(Constraint::Latin(latin_square::Constraint::ColumnNumber {
-                        column: self.column,
-                        value: self.value,
-                    }))
-                }
-                Constraint::Latin(latin_square::Constraint::ColumnNumber { .. }) => {
-                    Some(Constraint::Latin(latin_square::Constraint::RowColumn {
-                        row: self.row,
-                        column: self.column,
-                    }))
-                }
-                Constraint::Latin(latin_square::Constraint::RowColumn { .. }) => {
-                    Some(Constraint::SquareNumber {
-                        square: self.square,
-                        value: self.value,
-                    })
-                }
-                Constraint::SquareNumber { .. } => None,
+            }),
+            Constraint::Latin(latin_square::Constraint::ColumnNumber {
+                column: self.column,
+                value: self.value,
+            }),
+            Constraint::Latin(latin_square::Constraint::RowColumn {
+                row: self.row,
+                column: self.column,
+            }),
+            Constraint::SquareNumber {
+                square: self.square,
+                value: self.value,
             },
-        )
+        ]
+        .into_iter()
     }
 }
 
