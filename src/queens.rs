@@ -6,7 +6,6 @@
 //! column, or diagonal.
 
 use crate::ExactCover;
-use core::iter;
 use std::collections::HashSet;
 
 /// An instance of the `n` queens problem.
@@ -119,19 +118,17 @@ impl Possibility {
     /// Return an iterator over all the `Constraint`s that are satisfied by this
     /// `Possibility`.
     pub fn satisfied_constraints(self, side_length: usize) -> impl Iterator<Item = Constraint> {
-        iter::successors(
-            Some(Constraint::Row { index: self.row }),
-            move |cons| match cons {
-                Constraint::Row { .. } => Some(Constraint::Column { index: self.column }),
-                Constraint::Column { .. } => Some(Constraint::LeadingDiagonal {
-                    index: self.leading_diagonal(side_length),
-                }),
-                Constraint::LeadingDiagonal { .. } => Some(Constraint::TrailingDiagonal {
-                    index: self.trailing_diagonal(),
-                }),
-                Constraint::TrailingDiagonal { .. } => None,
+        [
+            Constraint::Row { index: self.row },
+            Constraint::Column { index: self.column },
+            Constraint::LeadingDiagonal {
+                index: self.leading_diagonal(side_length),
             },
-        )
+            Constraint::TrailingDiagonal {
+                index: self.trailing_diagonal(),
+            },
+        ]
+        .into_iter()
     }
 }
 
@@ -178,6 +175,7 @@ impl Constraint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::iter;
 
     fn p(row: usize, column: usize) -> Possibility {
         Possibility { row, column }
