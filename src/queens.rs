@@ -6,6 +6,7 @@
 //! column, or diagonal.
 
 use crate::ExactCover;
+use arbitrary::Arbitrary;
 use std::collections::HashSet;
 
 /// An instance of the `n` queens problem.
@@ -85,7 +86,7 @@ impl ExactCover for NQueens {
 }
 
 /// A position on the chess board.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct Possibility {
     /// The row index, ranging from 0 to `n - 1`.
     row: usize,
@@ -133,7 +134,7 @@ impl Possibility {
 }
 
 /// A condition which must be satisfied in order to solve an `n` queens puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub enum Constraint {
     /// A condition that a given row should have exactly one queen.
     Row {

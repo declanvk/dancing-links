@@ -3,6 +3,7 @@
 //! sub-array contains the values `1` through `n` with no repeats.
 
 use super::{latin_square, ExactCover};
+use arbitrary::Arbitrary;
 use std::collections::HashSet;
 
 /// An instance of a Sudoku puzzle.
@@ -86,7 +87,7 @@ impl ExactCover for Sudoku {
 }
 
 /// A position and value for a box inside of a Sudoku puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct Possibility {
     /// The row position of the box.
     ///
@@ -167,7 +168,7 @@ impl Into<latin_square::Possibility> for Possibility {
 }
 
 /// A condition which must be satisfied in order to solve a Sudoku puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub enum Constraint {
     /// A constraint which is also shared by a Latin Square puzzle.
     Latin(latin_square::Constraint),

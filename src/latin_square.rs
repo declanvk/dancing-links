@@ -3,6 +3,7 @@
 //! each row and exactly once in each column.
 
 use crate::ExactCover;
+use arbitrary::Arbitrary;
 use std::collections::HashSet;
 
 /// Instance of a Latin square puzzle.
@@ -80,7 +81,7 @@ impl ExactCover for LatinSquare {
 }
 
 /// A position and value for a box inside of a Latin square puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub struct Possibility {
     /// The row position of the box.
     ///
@@ -139,7 +140,7 @@ impl Possibility {
 }
 
 /// A condition which must be satisfied in order to solve a Latin square puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 pub enum Constraint {
     /// A condition that each row should only have a single instance of a
     /// numeric value.
