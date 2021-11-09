@@ -28,7 +28,7 @@ impl LatinSquare {
             .inspect(|poss| {
                 debug_assert!(
                     0 < poss.value && poss.value <= side_length,
-                    "Symbol values should be in range (0..side_length)"
+                    "Symbol values should be in range (1..=side_length)"
                 )
             })
             .collect();
