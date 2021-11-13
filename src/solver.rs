@@ -48,20 +48,7 @@ where
             stack: Vec::new(),
         };
 
-        // If the grid is already solved (no primary columns), don't bother to put a
-        // stack frame in
-        if !Self::solution_test(&solver.grid, &solver.problem) {
-            let min_column = Self::choose_column(&mut solver.grid, &solver.problem);
-            let selected_rows = Self::select_rows_from_column(min_column);
-
-            if !selected_rows.is_empty() {
-                solver.stack.push(Frame {
-                    state: FrameState::Cover,
-                    min_column,
-                    selected_rows,
-                });
-            }
-        }
+        solver.reset();
 
         solver
     }
@@ -72,6 +59,21 @@ where
         self.grid = Self::populate_grid(&self.problem);
         self.partial_solution.clear();
         self.stack.clear();
+
+        // If the grid is already solved (no primary columns), don't bother to put a
+        // stack frame in
+        if !Self::solution_test(&self.grid, &self.problem) {
+            let min_column = Self::choose_column(&mut self.grid, &self.problem);
+            let selected_rows = Self::select_rows_from_column(min_column);
+
+            if !selected_rows.is_empty() {
+                self.stack.push(Frame {
+                    state: FrameState::Cover,
+                    min_column,
+                    selected_rows,
+                });
+            }
+        }
     }
 
     fn populate_grid(problem: &E) -> Grid {
@@ -206,7 +208,7 @@ where
                     for column_ptr in columns {
                         Column::uncover(column_ptr);
                     }
-                    self.partial_solution.pop();
+                    debug_assert_eq!(self.partial_solution.pop(), Some(row_index - 1));
 
                     if curr_frame.selected_rows.is_empty() {
                         (StackOp::Pop, None)

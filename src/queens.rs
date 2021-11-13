@@ -21,6 +21,9 @@ pub struct NQueens {
     pub constraints: Vec<Constraint>,
     /// The length of the chess board side, equal to `n`.
     pub side_length: usize,
+    /// The list of values and positions that are given as fixed when the puzzle
+    /// is created.
+    pub filled_values: Vec<Possibility>,
 }
 
 impl NQueens {
@@ -52,6 +55,7 @@ impl NQueens {
             possibilities,
             constraints,
             side_length,
+            filled_values,
         }
     }
 }

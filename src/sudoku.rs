@@ -16,6 +16,9 @@ pub struct Sudoku {
     pub possibilities: Vec<Possibility>,
     /// The list of constraints that must be satisfied for this Sudoku puzzle.
     pub constraints: Vec<Constraint>,
+    /// The list of values and positions that are given as fixed when the puzzle
+    /// is created.
+    pub filled_values: Vec<Possibility>,
 }
 
 impl Sudoku {
@@ -28,14 +31,20 @@ impl Sudoku {
         filled_values: impl IntoIterator<Item = latin_square::Possibility>,
     ) -> Self {
         let side_length = box_side_length * box_side_length;
-        let filled_values: Vec<_> = filled_values.into_iter().collect();
+        let latin_filled_values: Vec<_> = filled_values.into_iter().collect();
 
-        let latin = latin_square::LatinSquare::new(side_length, filled_values.iter().copied());
+        let latin =
+            latin_square::LatinSquare::new(side_length, latin_filled_values.iter().copied());
 
-        let satisfied: HashSet<_> = filled_values
+        let sudoku_filled_values = latin_filled_values
             .iter()
             .copied()
             .map(|latin_poss| Possibility::from_latin(latin_poss, box_side_length))
+            .collect::<Vec<_>>();
+
+        let satisfied: HashSet<_> = sudoku_filled_values
+            .iter()
+            .copied()
             .flat_map(Possibility::satisfied_constraints)
             .collect();
 
@@ -56,6 +65,7 @@ impl Sudoku {
         Self {
             possibilities,
             constraints,
+            filled_values: sudoku_filled_values,
         }
     }
 }

@@ -17,6 +17,9 @@ pub struct LatinSquare {
     /// The list of constraints that must be satisfied for this Latin square
     /// puzzle.
     pub constraints: Vec<Constraint>,
+    /// The list of values and positions that are given as fixed when the puzzle
+    /// is created.
+    pub filled_values: Vec<Possibility>,
 }
 
 impl LatinSquare {
@@ -57,6 +60,7 @@ impl LatinSquare {
         Self {
             possibilities,
             constraints,
+            filled_values,
         }
     }
 }
