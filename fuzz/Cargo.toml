@@ -1,0 +1,32 @@
+[package]
+name = "dancing-links-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = "1.0.2"
+
+[dependencies.dancing-links]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "small_sudoku"
+path = "fuzz_targets/small_sudoku.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "small_latin_square"
+path = "fuzz_targets/small_latin_square.rs"
+test = false
+doc = false
