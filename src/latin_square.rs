@@ -3,11 +3,13 @@
 //! each row and exactly once in each column.
 
 use crate::ExactCover;
+#[cfg(fuzzing)]
 use arbitrary::Arbitrary;
 use std::collections::HashSet;
 
 /// Instance of a Latin square puzzle.
 #[derive(Debug)]
+#[cfg_attr(fuzzing, derive(Arbitrary))]
 pub struct LatinSquare {
     /// The list of possible positions + values that could solve the Latin
     /// square puzzle.
@@ -81,7 +83,8 @@ impl ExactCover for LatinSquare {
 }
 
 /// A position and value for a box inside of a Latin square puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(fuzzing, derive(Arbitrary))]
 pub struct Possibility {
     /// The row position of the box.
     ///
@@ -140,7 +143,8 @@ impl Possibility {
 }
 
 /// A condition which must be satisfied in order to solve a Latin square puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(fuzzing, derive(Arbitrary))]
 pub enum Constraint {
     /// A condition that each row should only have a single instance of a
     /// numeric value.

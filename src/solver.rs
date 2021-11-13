@@ -26,6 +26,7 @@ enum FrameState {
 
 #[derive(Debug)]
 struct Frame {
+    #[allow(dead_code)]
     min_column: *mut Column,
     selected_rows: VecDeque<(usize, Vec<*mut Column>)>,
     state: FrameState,
@@ -103,12 +104,20 @@ where
         Grid::new(problem.constraints().len(), coordinates_iter)
     }
 
+    /// Return true if the current grid represents a valid solution.
+    ///
+    /// This implementation determines that the grid represents a solution if
+    /// there are only optional columns left uncovered in the grid.
     fn solution_test(grid: &Grid, problem: &E) -> bool {
         !grid
             .uncovered_columns()
             .any(|column| !problem.is_optional(&problem.constraints()[Column::index(column) - 1]))
     }
 
+    /// Select a column to remove from the matrix.
+    ///
+    /// This implementation chooses the non-optional column that has the least
+    /// number of entries uncovered in the grid.
     fn choose_column(grid: &mut Grid, problem: &E) -> *mut Column {
         grid.uncovered_columns_mut()
             .filter(|column| {
@@ -118,6 +127,8 @@ where
             .unwrap()
     }
 
+    /// Return a list of rows that are uncovered and present in the given
+    /// column.
     fn select_rows_from_column(min_column: *mut Column) -> VecDeque<(usize, Vec<*mut Column>)> {
         Column::rows(min_column)
             .map(|node_ptr| {

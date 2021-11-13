@@ -6,11 +6,13 @@
 //! column, or diagonal.
 
 use crate::ExactCover;
+#[cfg(fuzzing)]
 use arbitrary::Arbitrary;
 use std::collections::HashSet;
 
 /// An instance of the `n` queens problem.
 #[derive(Debug)]
+#[cfg_attr(fuzzing, derive(Arbitrary))]
 pub struct NQueens {
     /// The list of possible positions that could solve the `n` queens puzzle.
     pub possibilities: Vec<Possibility>,
@@ -86,7 +88,8 @@ impl ExactCover for NQueens {
 }
 
 /// A position on the chess board.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(fuzzing, derive(Arbitrary))]
 pub struct Possibility {
     /// The row index, ranging from 0 to `n - 1`.
     row: usize,
@@ -134,7 +137,8 @@ impl Possibility {
 }
 
 /// A condition which must be satisfied in order to solve an `n` queens puzzle.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(fuzzing, derive(Arbitrary))]
 pub enum Constraint {
     /// A condition that a given row should have exactly one queen.
     Row {
