@@ -1,5 +1,5 @@
 use crate::{
-    grid::{Column, Grid, Node},
+    grid::{Column, Node, SparseGrid},
     ExactCover,
 };
 use core::iter;
@@ -11,7 +11,7 @@ pub struct Solver<'e, E: ExactCover> {
     problem: &'e E,
 
     // Values used to track the state of solving
-    grid: Grid,
+    grid: SparseGrid,
     partial_solution: Vec<usize>,
     stack: Vec<Frame>,
 }
@@ -76,7 +76,7 @@ where
         }
     }
 
-    fn populate_grid(problem: &E) -> Grid {
+    fn populate_grid(problem: &E) -> SparseGrid {
         let coordinates_iter = problem
             .possibilities()
             .iter()
@@ -103,14 +103,14 @@ where
                 }
             });
 
-        Grid::new(problem.constraints().len(), coordinates_iter)
+        SparseGrid::new(problem.constraints().len(), coordinates_iter)
     }
 
     /// Return true if the current grid represents a valid solution.
     ///
     /// This implementation determines that the grid represents a solution if
     /// there are only optional columns left uncovered in the grid.
-    fn solution_test(grid: &Grid, problem: &E) -> bool {
+    fn solution_test(grid: &SparseGrid, problem: &E) -> bool {
         !grid
             .uncovered_columns()
             .any(|column| !problem.is_optional(&problem.constraints()[Column::index(column) - 1]))
@@ -120,7 +120,7 @@ where
     ///
     /// This implementation chooses the non-optional column that has the least
     /// number of entries uncovered in the grid.
-    fn choose_column(grid: &mut Grid, problem: &E) -> *mut Column {
+    fn choose_column(grid: &mut SparseGrid, problem: &E) -> *mut Column {
         grid.uncovered_columns_mut()
             .filter(|column| {
                 !problem.is_optional(&problem.constraints()[Column::index(*column as *const _) - 1])
@@ -203,7 +203,7 @@ where
                 // Cleanup the current row, uncover the selected columns, remove the row from
                 // the solution.
                 FrameState::Uncover => {
-                    let (_row_index, columns) = curr_frame.selected_rows.pop_front().unwrap();
+                    let (row_index, columns) = curr_frame.selected_rows.pop_front().unwrap();
 
                     for column_ptr in columns {
                         Column::uncover(column_ptr);

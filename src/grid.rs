@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 
 /// Dancing links grid, support efficient removal of rows and columns.
 #[derive(Debug)]
-pub struct Grid {
+pub struct SparseGrid {
     // This node only left-right neighbors, no children
     root: *mut Column,
 
@@ -21,7 +21,7 @@ pub struct Grid {
     max_row: usize,
 }
 
-impl Grid {
+impl SparseGrid {
     /// Create a new grid with a specified number of columns, and the given
     /// coordinates filled.
     ///
@@ -43,7 +43,7 @@ impl Grid {
             Column::add_right(column, next_column);
         }
 
-        let mut grid = Grid {
+        let mut grid = SparseGrid {
             root,
             columns,
             arena,
@@ -478,7 +478,7 @@ impl Column {
 }
 
 #[cfg(test)]
-pub fn to_string(grid: &Grid) -> String {
+pub fn to_string(grid: &SparseGrid) -> String {
     use std::fmt::Write;
 
     let mut output = String::new();
@@ -511,7 +511,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn create_a_small_grid() {
-        let grid = Grid::new(4, vec![(1, 1), (1, 4), (2, 2), (3, 3), (4, 1), (4, 4)]);
+        let grid = SparseGrid::new(4, vec![(1, 1), (1, 4), (2, 2), (3, 3), (4, 1), (4, 4)]);
 
         assert_eq!(
             grid.to_dense(),
@@ -530,7 +530,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn create_weird_grids() {
-        let thin_grid = Grid::new(1, vec![
+        let thin_grid = SparseGrid::new(1, vec![
             (1, 1),
             (2, 1),
             (3, 1),
@@ -561,7 +561,7 @@ mod tests {
         );
         assert!(!thin_grid.is_empty());
 
-        let very_thin_grid = Grid::new(0, vec![]);
+        let very_thin_grid = SparseGrid::new(0, vec![]);
 
         assert_eq!(very_thin_grid.to_dense(), vec![].into_boxed_slice());
         assert!(very_thin_grid.is_empty());
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn cover_uncover_column() {
-        let mut grid = Grid::new(4, vec![(1, 1), (1, 4), (2, 2), (3, 3), (4, 1), (4, 4)]);
+        let mut grid = SparseGrid::new(4, vec![(1, 1), (1, 4), (2, 2), (3, 3), (4, 1), (4, 4)]);
 
         // mutate the grid
         Column::cover(grid.all_columns_mut().nth(3).unwrap());
@@ -618,7 +618,7 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn cover_uncover_all() {
-        let mut grid = Grid::new(4, vec![
+        let mut grid = SparseGrid::new(4, vec![
             (1, 1),                 (1, 4),
                     (2, 2),
                             (3, 3),
@@ -675,7 +675,7 @@ mod tests {
         // [0, 1, 1, 0, 1, 0]
         // [1, 0, 0, 1, 0, 1]
         // [0, 1, 0, 0, 0, 1]
-        let mut grid = Grid::new(6, vec![
+        let mut grid = SparseGrid::new(6, vec![
             (1, 1),                         (1, 5),
                     (2, 2), (2, 3),         (2, 5),
             (3, 1),                 (3, 4),         (3, 6),
