@@ -139,20 +139,23 @@ impl BaseNode {
 }
 
 pub mod iter {
+    use std::iter::Map;
+
     use super::*;
 
     #[allow(dead_code)]
     pub fn up(
         original: *const BaseNode,
         skip: Option<*const BaseNode>,
-    ) -> impl Iterator<Item = *const BaseNode> {
+    ) -> Map<BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode>, fn(*mut BaseNode) -> *const BaseNode>
+    {
         up_mut(original as *mut _, skip.map(|skip| skip as *mut _)).map(|ptr| ptr as *const _)
     }
 
     pub fn up_mut(
         original: *mut BaseNode,
         skip: Option<*mut BaseNode>,
-    ) -> impl Iterator<Item = *mut BaseNode> {
+    ) -> BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode> {
         BaseNodeIterator {
             original,
             current: original,
@@ -164,14 +167,15 @@ pub mod iter {
     pub fn down(
         original: *const BaseNode,
         skip: Option<*const BaseNode>,
-    ) -> impl Iterator<Item = *const BaseNode> {
+    ) -> Map<BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode>, fn(*mut BaseNode) -> *const BaseNode>
+    {
         down_mut(original as *mut _, skip.map(|skip| skip as *mut _)).map(|ptr| ptr as *const _)
     }
 
     pub fn down_mut(
         original: *mut BaseNode,
         skip: Option<*mut BaseNode>,
-    ) -> impl Iterator<Item = *mut BaseNode> {
+    ) -> BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode> {
         BaseNodeIterator {
             original,
             current: original,
@@ -183,14 +187,15 @@ pub mod iter {
     pub fn left(
         original: *const BaseNode,
         skip: Option<*const BaseNode>,
-    ) -> impl Iterator<Item = *const BaseNode> {
+    ) -> Map<BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode>, fn(*mut BaseNode) -> *const BaseNode>
+    {
         left_mut(original as *mut _, skip.map(|skip| skip as *mut _)).map(|ptr| ptr as *const _)
     }
 
     pub fn left_mut(
         original: *mut BaseNode,
         skip: Option<*mut BaseNode>,
-    ) -> impl Iterator<Item = *mut BaseNode> {
+    ) -> BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode> {
         BaseNodeIterator {
             original,
             current: original,
@@ -202,14 +207,15 @@ pub mod iter {
     pub fn right(
         original: *const BaseNode,
         skip: Option<*const BaseNode>,
-    ) -> impl Iterator<Item = *const BaseNode> {
+    ) -> Map<BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode>, fn(*mut BaseNode) -> *const BaseNode>
+    {
         right_mut(original as *mut _, skip.map(|skip| skip as *mut _)).map(|ptr| ptr as *const _)
     }
 
     pub fn right_mut(
         original: *mut BaseNode,
         skip: Option<*mut BaseNode>,
-    ) -> impl Iterator<Item = *mut BaseNode> {
+    ) -> BaseNodeIterator<fn(&BaseNode) -> *mut BaseNode> {
         BaseNodeIterator {
             original,
             current: original,

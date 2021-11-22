@@ -1,19 +1,16 @@
-use crate::{
-    grid::{Column, Node, SparseGrid},
-    ExactCover,
-};
+use crate::{sparse_grid::SparseGrid, ExactCover, Grid};
 use core::iter;
 use std::collections::VecDeque;
 
 /// Solver that iteratively returns solutions to exact cover problems.
 #[derive(Debug)]
-pub struct Solver<'e, E: ExactCover> {
+pub struct Solver<'e, E: ExactCover, G: Grid = SparseGrid> {
     problem: &'e E,
 
     // Values used to track the state of solving
-    grid: SparseGrid,
+    grid: G,
     partial_solution: Vec<usize>,
-    stack: Vec<Frame>,
+    stack: Vec<Frame<G>>,
 }
 
 #[derive(Debug)]
@@ -25,10 +22,10 @@ enum FrameState {
 }
 
 #[derive(Debug)]
-struct Frame {
+struct Frame<G: Grid> {
     #[allow(dead_code)]
-    min_column: *mut Column,
-    selected_rows: VecDeque<(usize, Vec<*mut Column>)>,
+    min_column: G::Column,
+    selected_rows: VecDeque<(usize, Vec<G::Column>)>,
     state: FrameState,
 }
 
@@ -52,7 +49,13 @@ where
 
         solver
     }
+}
 
+impl<'e, E, G> Solver<'e, E, G>
+where
+    E: ExactCover,
+    G: Grid,
+{
     /// Reset all solver state except for the stored possibilities and
     /// constraints.
     pub fn reset(&mut self) {
@@ -64,7 +67,7 @@ where
         // stack frame in
         if !Self::solution_test(&self.grid, &self.problem) {
             let min_column = Self::choose_column(&mut self.grid, &self.problem);
-            let selected_rows = Self::select_rows_from_column(min_column);
+            let selected_rows = Self::select_rows_from_column(&self.grid, min_column);
 
             if !selected_rows.is_empty() {
                 self.stack.push(Frame {
@@ -76,7 +79,7 @@ where
         }
     }
 
-    fn populate_grid(problem: &E) -> SparseGrid {
+    fn populate_grid(problem: &E) -> G {
         let coordinates_iter = problem
             .possibilities()
             .iter()
@@ -103,43 +106,41 @@ where
                 }
             });
 
-        SparseGrid::new(problem.constraints().len(), coordinates_iter)
+        G::new(problem.constraints().len(), coordinates_iter)
     }
 
     /// Return true if the current grid represents a valid solution.
     ///
     /// This implementation determines that the grid represents a solution if
     /// there are only optional columns left uncovered in the grid.
-    fn solution_test(grid: &SparseGrid, problem: &E) -> bool {
+    fn solution_test(grid: &G, problem: &E) -> bool {
         !grid
             .uncovered_columns()
-            .any(|column| !problem.is_optional(&problem.constraints()[Column::index(column) - 1]))
+            .any(|column| !problem.is_optional(&problem.constraints()[grid.column_id(column)]))
     }
 
     /// Select a column to remove from the matrix.
     ///
     /// This implementation chooses the non-optional column that has the least
     /// number of entries uncovered in the grid.
-    fn choose_column(grid: &mut SparseGrid, problem: &E) -> *mut Column {
-        grid.uncovered_columns_mut()
-            .filter(|column| {
-                !problem.is_optional(&problem.constraints()[Column::index(*column as *const _) - 1])
-            })
-            .min_by_key(|column_ptr| Column::size(*column_ptr))
+    fn choose_column(grid: &mut G, problem: &E) -> G::Column {
+        grid.uncovered_columns()
+            .filter(|column| !problem.is_optional(&problem.constraints()[grid.column_id(*column)]))
+            .min_by_key(|column_ptr| grid.column_size(*column_ptr))
             .unwrap()
     }
 
     /// Return a list of rows that are uncovered and present in the given
     /// column.
-    fn select_rows_from_column(min_column: *mut Column) -> VecDeque<(usize, Vec<*mut Column>)> {
-        Column::rows(min_column)
+    fn select_rows_from_column(
+        grid: &G,
+        min_column: G::Column,
+    ) -> VecDeque<(usize, Vec<G::Column>)> {
+        grid.uncovered_rows_in_column(min_column)
             .map(|node_ptr| {
                 (
-                    Node::row_index(node_ptr),
-                    Node::neighbors(node_ptr)
-                        .map(Node::column_ptr)
-                        .chain(iter::once(Node::column_ptr(node_ptr)))
-                        .collect(),
+                    grid.row_id(node_ptr),
+                    grid.uncovered_columns_in_row(node_ptr).collect(),
                 )
             })
             .collect()
@@ -172,7 +173,7 @@ where
 
                     self.partial_solution.push(row_index - 1);
                     for column_ptr in columns {
-                        Column::cover(*column_ptr);
+                        self.grid.cover(*column_ptr);
                     }
 
                     // This is where the recursion happens, but we also have to check for the
@@ -181,7 +182,7 @@ where
                         (StackOp::None, Some(self.partial_solution.clone()))
                     } else {
                         let min_column = Self::choose_column(&mut self.grid, &self.problem);
-                        let selected_rows = Self::select_rows_from_column(min_column);
+                        let selected_rows = Self::select_rows_from_column(&self.grid, min_column);
 
                         if selected_rows.is_empty() {
                             (StackOp::None, None)
@@ -206,7 +207,7 @@ where
                     let (row_index, columns) = curr_frame.selected_rows.pop_front().unwrap();
 
                     for column_ptr in columns {
-                        Column::uncover(column_ptr);
+                        self.grid.uncover(column_ptr);
                     }
                     debug_assert_eq!(self.partial_solution.pop(), Some(row_index - 1));
 
@@ -243,9 +244,10 @@ where
     }
 }
 
-impl<'e, E> Iterator for Solver<'e, E>
+impl<'e, E, G> Iterator for Solver<'e, E, G>
 where
     E: ExactCover,
+    G: Grid,
 {
     type Item = Vec<&'e E::Possibility>;
 

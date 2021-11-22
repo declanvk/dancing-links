@@ -4,13 +4,16 @@
 //! and [Algorithm X](https://en.wikipedia.org/wiki/Knuth%27s_Algorithm_X) for solving
 //!  [exact cover](https://en.wikipedia.org/wiki/Exact_cover) problems.
 
-pub mod grid;
+pub mod dense_grid;
+pub(crate) mod grid;
 pub mod latin_square;
 pub mod queens;
 pub(crate) mod solver;
+pub mod sparse_grid;
 pub mod sudoku;
 pub(crate) mod util;
 
+pub use grid::Grid;
 pub use solver::Solver;
 
 /// An instance of an exact cover problem.
