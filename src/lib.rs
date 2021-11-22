@@ -49,3 +49,27 @@ pub trait ExactCover {
         Solver::new(self)
     }
 }
+
+impl<E> ExactCover for &E
+where
+    E: ExactCover,
+{
+    type Constraint = E::Constraint;
+    type Possibility = E::Possibility;
+
+    fn satisfies(&self, poss: &Self::Possibility, cons: &Self::Constraint) -> bool {
+        <E as ExactCover>::satisfies(&self, poss, cons)
+    }
+
+    fn is_optional(&self, cons: &Self::Constraint) -> bool {
+        <E as ExactCover>::is_optional(&self, cons)
+    }
+
+    fn possibilities(&self) -> &[Self::Possibility] {
+        <E as ExactCover>::possibilities(&self)
+    }
+
+    fn constraints(&self) -> &[Self::Constraint] {
+        <E as ExactCover>::constraints(&self)
+    }
+}
