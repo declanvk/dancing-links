@@ -1,5 +1,4 @@
 use crate::{sparse_grid::SparseGrid, ExactCover, Grid};
-use core::iter;
 use std::collections::VecDeque;
 
 /// Solver that iteratively returns solutions to exact cover problems.
@@ -35,6 +34,18 @@ where
 {
     /// Create a new `Solver` with the given instance of an exact cover problem.
     pub fn new(problem: &'e E) -> Self {
+        Self::with_grid(problem)
+    }
+}
+
+impl<'e, E, G> Solver<'e, E, G>
+where
+    E: ExactCover,
+    G: Grid,
+{
+    /// Create a new `Solver` with the given instance of an exact cover problem
+    /// and the specified `Grid` implementation.
+    pub fn with_grid(problem: &'e E) -> Self {
         let grid = Self::populate_grid(problem);
 
         let mut solver = Self {
@@ -49,24 +60,18 @@ where
 
         solver
     }
-}
 
-impl<'e, E, G> Solver<'e, E, G>
-where
-    E: ExactCover,
-    G: Grid,
-{
     /// Reset all solver state except for the stored possibilities and
     /// constraints.
     pub fn reset(&mut self) {
-        self.grid = Self::populate_grid(&self.problem);
+        self.grid = Self::populate_grid(self.problem);
         self.partial_solution.clear();
         self.stack.clear();
 
         // If the grid is already solved (no primary columns), don't bother to put a
         // stack frame in
-        if !Self::solution_test(&self.grid, &self.problem) {
-            let min_column = Self::choose_column(&mut self.grid, &self.problem);
+        if !Self::solution_test(&self.grid, self.problem) {
+            let min_column = Self::choose_column(&mut self.grid, self.problem);
             let selected_rows = Self::select_rows_from_column(&self.grid, min_column);
 
             if !selected_rows.is_empty() {
@@ -178,10 +183,10 @@ where
 
                     // This is where the recursion happens, but we also have to check for the
                     // solution here.
-                    let stack_op = if Self::solution_test(&self.grid, &self.problem) {
+                    let stack_op = if Self::solution_test(&self.grid, self.problem) {
                         (StackOp::None, Some(self.partial_solution.clone()))
                     } else {
-                        let min_column = Self::choose_column(&mut self.grid, &self.problem);
+                        let min_column = Self::choose_column(&mut self.grid, self.problem);
                         let selected_rows = Self::select_rows_from_column(&self.grid, min_column);
 
                         if selected_rows.is_empty() {

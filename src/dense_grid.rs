@@ -87,7 +87,8 @@ impl DenseGridInner {
             rows: self.uncovered_rows_in_column(column).collect(),
         };
 
-        self.covered_columns.insert(column);
+        // Assert that this column was not already covered
+        assert!(self.covered_columns.insert(column));
         self.covered_rows.extend(cover.rows.iter().copied());
 
         self.covers.push(cover);
@@ -103,7 +104,8 @@ impl DenseGridInner {
             "Expected column argument to match top cover"
         );
 
-        self.covered_columns.remove(&cover.column);
+        // Check that the column to be uncovered was actually covered in the first place
+        assert!(self.covered_columns.remove(&cover.column));
         for row in cover.rows {
             self.covered_rows.remove(&row);
         }
@@ -130,7 +132,7 @@ impl DenseGridInner {
 
     fn column_size(&self, column: usize) -> usize {
         (0..self.num_rows)
-            .filter(|row| !self.covered_rows.contains(&row))
+            .filter(|row| !self.covered_rows.contains(row))
             .fold(0, |count, row| {
                 let index = Self::to_index(row, column, self.num_columns);
 
@@ -144,7 +146,7 @@ impl DenseGridInner {
 
     fn uncovered_columns_in_row(&self, row: usize) -> vec::IntoIter<usize> {
         (0..self.num_columns)
-            .filter(|column| !self.covered_columns.contains(&column))
+            .filter(|column| !self.covered_columns.contains(column))
             .filter(|column| {
                 let index = Self::to_index(row, *column, self.num_columns);
 

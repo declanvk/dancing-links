@@ -478,7 +478,7 @@ impl Column {
     /// Cover entire column, and any rows that that appear in this column.
     pub fn cover(self_ptr: *mut Self) {
         let mut column = unsafe { ptr::read(self_ptr) };
-        assert!(!column.is_covered);
+        assert!(!column.is_covered, "column is already covered!");
 
         let base_ptr = self_ptr.cast::<BaseNode>();
 
@@ -496,7 +496,7 @@ impl Column {
     /// Uncover entire column, and any rows that appear in this column.
     pub fn uncover(self_ptr: *mut Self) {
         let mut column = unsafe { ptr::read(self_ptr) };
-        assert!(column.is_covered);
+        assert!(column.is_covered, "column is already uncovered!");
 
         let base_ptr = self_ptr.cast::<BaseNode>();
 

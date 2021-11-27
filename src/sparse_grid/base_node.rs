@@ -29,6 +29,12 @@ impl BaseNode {
     }
 }
 
+impl Default for BaseNode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // NOTE: The [un]cover methods should always read and write a single location
 // atomically (not interleaving read + write) in the case that the 2 neighbor
 // locations are in fact the same. If this happens while interleaved, only one

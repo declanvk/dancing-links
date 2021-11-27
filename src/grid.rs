@@ -25,9 +25,18 @@ pub trait Grid {
     ) -> Self;
 
     /// Cover entire column, and any rows that that appear in this column.
+    ///
+    /// # Panics
+    ///
+    /// Panics if multiple calls to `cover` are made with the same `column`
+    /// value, without an intermediate `uncover` for the same column.
     fn cover(&self, column: Self::Column);
 
     /// Uncover entire column, and any rows that appear in this column.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there was not a previous call to `cover` the same column.
     fn uncover(&self, column: Self::Column);
 
     /// Return an iterator of pointers to columns that are uncovered.

@@ -58,18 +58,18 @@ where
     type Possibility = E::Possibility;
 
     fn satisfies(&self, poss: &Self::Possibility, cons: &Self::Constraint) -> bool {
-        <E as ExactCover>::satisfies(&self, poss, cons)
+        <E as ExactCover>::satisfies(self, poss, cons)
     }
 
     fn is_optional(&self, cons: &Self::Constraint) -> bool {
-        <E as ExactCover>::is_optional(&self, cons)
+        <E as ExactCover>::is_optional(self, cons)
     }
 
     fn possibilities(&self) -> &[Self::Possibility] {
-        <E as ExactCover>::possibilities(&self)
+        <E as ExactCover>::possibilities(self)
     }
 
     fn constraints(&self) -> &[Self::Constraint] {
-        <E as ExactCover>::constraints(&self)
+        <E as ExactCover>::constraints(self)
     }
 }
