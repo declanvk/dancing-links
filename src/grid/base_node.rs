@@ -78,13 +78,13 @@ impl BaseNode {
                 ..
             } = ptr::read(self_ptr);
 
-            let mut left_node = ptr::read(left_ptr);
-            left_node.right = self_ptr;
-            ptr::write(left_ptr, left_node);
-
             let mut right_node = ptr::read(right_ptr);
             right_node.left = self_ptr;
             ptr::write(right_ptr, right_node);
+
+            let mut left_node = ptr::read(left_ptr);
+            left_node.right = self_ptr;
+            ptr::write(left_ptr, left_node);
         }
     }
 
@@ -96,13 +96,13 @@ impl BaseNode {
                 ..
             } = ptr::read(self_ptr);
 
-            let mut up_node = ptr::read(up_ptr);
-            up_node.down = self_ptr;
-            ptr::write(up_ptr, up_node);
-
             let mut down_node = ptr::read(down_ptr);
             down_node.up = self_ptr;
             ptr::write(down_ptr, down_node);
+
+            let mut up_node = ptr::read(up_ptr);
+            up_node.down = self_ptr;
+            ptr::write(up_ptr, up_node);
         }
     }
 }

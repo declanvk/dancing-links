@@ -193,7 +193,7 @@ where
                 FrameState::Uncover => {
                     let (_row_index, columns) = curr_frame.selected_rows.pop_front().unwrap();
 
-                    for column_ptr in columns {
+                    for column_ptr in columns.into_iter().rev() {
                         Column::uncover(column_ptr);
                     }
                     self.partial_solution.pop();
