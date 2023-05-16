@@ -108,8 +108,7 @@ impl BaseNode {
 }
 
 macro_rules! add_direction {
-    ($name:ident, $direction:ident, $opposite:ident, $lint:meta) => {
-        #[$lint]
+    ($name:ident, $direction:ident, $opposite:ident) => {
         pub fn $name(self_ptr: *mut Self, neighbor_ptr: *mut BaseNode) {
             unsafe {
                 let mut self_node = ptr::read(self_ptr);
@@ -124,7 +123,7 @@ macro_rules! add_direction {
     };
 
     ($name:ident, $direction:ident, $opposite:ident) => {
-        add_direction!($name, $direction, $opposite, allow());
+        add_direction!($name, $direction, $opposite);
     };
 }
 
@@ -134,20 +133,10 @@ impl BaseNode {
     add_direction!(add_above, up, down);
 
     add_direction!(add_right, right, left);
-
-    add_direction!(add_left, left, right, allow(dead_code));
 }
 
 pub mod iter {
     use super::*;
-
-    #[allow(dead_code)]
-    pub fn up(
-        original: *const BaseNode,
-        skip: Option<*const BaseNode>,
-    ) -> impl Iterator<Item = *const BaseNode> {
-        up_mut(original as *mut _, skip.map(|skip| skip as *mut _)).map(|ptr| ptr as *const _)
-    }
 
     pub fn up_mut(
         original: *mut BaseNode,
