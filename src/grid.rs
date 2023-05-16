@@ -439,7 +439,7 @@ impl Column {
             let empty = (column.base.down as *const _) == self_ptr;
 
             debug_assert!(
-                (empty && Self::size(self_ptr) == 0) || !empty,
+                !empty && Self::size(self_ptr) == 0,
                 "The size should be tracked accurately."
             );
 
