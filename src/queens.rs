@@ -70,7 +70,10 @@ impl ExactCover for NQueens {
     }
 
     fn is_optional(&self, cons: &Self::Constraint) -> bool {
-        matches!(cons, Constraint::LeadingDiagonal {..} | Constraint::TrailingDiagonal {..})
+        matches!(
+            cons,
+            Constraint::LeadingDiagonal { .. } | Constraint::TrailingDiagonal { .. }
+        )
     }
 
     fn possibilities(&self) -> &[Self::Possibility] {
