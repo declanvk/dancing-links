@@ -1,11 +1,9 @@
+imports_granularity="Crate"
 error_on_unformatted = true
 indent_style = "Block"
 reorder_imports = true
 wrap_comments = true
 condense_wildcard_suffixes = true
 format_strings = true
-merge_imports = true
 reorder_impl_items = true
-report_todo = "Always"
-report_fixme = "Always"
 use_field_init_shorthand = true
