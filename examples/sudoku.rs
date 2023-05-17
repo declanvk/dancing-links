@@ -1,9 +1,15 @@
-// Run Sudoku solver
-// Usage:
-// $ cargo run --release --example sudoku 300080900000340000008005600500104070002009010003000040005001200000000000070008090
+//! Run Sudoku solver
+//! Usage:
+//!
+//! ```bash
+//! cargo run --release --example sudoku 300080900000340000008005600500104070002009010003000040005001200000000000070008090
+//! ```
 
-use dancing_links::{latin_square, ExactCover};
-use dancing_links::sudoku::{Sudoku, Possibility};
+use dancing_links::{
+    latin_square,
+    sudoku::{Possibility, Sudoku},
+    ExactCover,
+};
 
 fn print_solution(problem: &str, solution: &Vec<&Possibility>) {
     let mut s: Vec<char> = problem.chars().collect();
@@ -39,10 +45,7 @@ fn main() {
         }
     }
 
-    let sudoku = Sudoku::new(
-        3,
-        filled,
-    );
+    let sudoku = Sudoku::new(3, filled);
     let solver = sudoku.solver();
     for solution in solver {
         print_solution(problem, &solution);
