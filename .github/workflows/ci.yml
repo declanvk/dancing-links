@@ -57,6 +57,8 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+          # run all tests as speedy as possible
+          args: --release -- --include-ignored
 
   test_miri:
     name: Test Suite (Miri)
