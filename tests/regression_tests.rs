@@ -4,6 +4,7 @@ use common::parse_sudoku_possibilities;
 use dancing_links::{ExactCover, Solver};
 
 #[test]
+#[ignore = "test takes upwards of 300 seconds when running not in release mode"]
 fn issue_4() {
     env_logger::init();
 

@@ -18,6 +18,7 @@ use crate::common::{format_sudoku_possibilities, parse_sudoku_possibilities};
 
 // Basing these exact counts off of https://en.wikipedia.org/wiki/Mathematics_of_Sudoku#Sudoku_with_rectangular_regions
 #[test]
+#[cfg_attr(miri, ignore)]
 fn enumerate_all_sudoku_solutions_small() {
     let puzzle_4x4 = Sudoku::new(2, iter::empty());
     let solver_4x4 = Solver::new(&puzzle_4x4);
@@ -49,6 +50,7 @@ fn enumerate_many_sudoku_solutions() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn single_sudoku_test() {
     env_logger::init();
 
