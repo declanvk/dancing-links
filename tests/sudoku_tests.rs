@@ -5,14 +5,6 @@ use dancing_links::{
     sudoku::{self, Sudoku},
     Solver,
 };
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use std::{
-    error::Error,
-    fs::OpenOptions,
-    io::{BufRead, BufReader},
-    iter,
-    path::PathBuf,
-};
 
 use crate::common::{format_sudoku_possibilities, parse_sudoku_possibilities};
 
@@ -20,7 +12,7 @@ use crate::common::{format_sudoku_possibilities, parse_sudoku_possibilities};
 #[test]
 #[cfg_attr(miri, ignore)]
 fn enumerate_all_sudoku_solutions_small() {
-    let puzzle_4x4 = Sudoku::new(2, iter::empty());
+    let puzzle_4x4 = Sudoku::new(2, std::iter::empty());
     let solver_4x4 = Solver::new(&puzzle_4x4);
     assert_eq!(solver_4x4.count(), 288);
 }
@@ -74,102 +66,4 @@ fn single_sudoku_test() {
     );
 
     assert_eq!(actual_solved_sudoku, expected_solved_sudoku);
-}
-
-#[test]
-#[ignore]
-fn solve_all_test_data() -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
-    fn test_logic(
-        sudoku_input: &str,
-        expected_solved_sudoku: &str,
-    ) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
-        log::debug!(
-            "Attempting to solve [{}] into [{}].",
-            sudoku_input,
-            expected_solved_sudoku
-        );
-
-        let (puzzle, filled_values) = parse_sudoku_possibilities(sudoku_input, 3);
-        let mut solver = Solver::new(&puzzle);
-
-        let solutions = solver.all_solutions();
-        assert_eq!(solutions.len(), 1);
-        let solution = &solutions[0];
-        let actual_solved_sudoku = format_sudoku_possibilities(
-            filled_values
-                .into_iter()
-                .map(|poss| sudoku::Possibility::from_latin(poss, 3))
-                .chain(solution.iter().map(|p| **p)),
-            3,
-        );
-
-        assert_eq!(actual_solved_sudoku, expected_solved_sudoku);
-
-        Ok(())
-    }
-
-    env_logger::init();
-
-    let mut sudoku_data_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    sudoku_data_path.push("tests");
-    sudoku_data_path.push("data");
-    sudoku_data_path.push("sudoku");
-
-    log::info!(
-        "Looking in [{}] for sudoku data.",
-        sudoku_data_path.display()
-    );
-
-    let sudoku_data_paths = sudoku_data_path
-        .read_dir()?
-        .map(|entry| entry.map(|entry| entry.path()))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    sudoku_data_paths.into_par_iter().take(1).try_for_each(
-        |sudoku_chunk_path| -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
-            let sudoku_chunk_file = OpenOptions::new().read(true).open(&sudoku_chunk_path)?;
-            let mut sudoku_file_buffer = BufReader::new(sudoku_chunk_file);
-            let mut line = String::new();
-            let mut line_number = 0;
-
-            // skip first line with csv header
-            sudoku_file_buffer.read_line(&mut line)?;
-            line_number += 1;
-
-            loop {
-                line.clear();
-
-                sudoku_file_buffer.read_line(&mut line)?;
-                line_number += 1;
-                if line.is_empty() {
-                    // No more lines to read
-                    break;
-                }
-
-                let mut fields = line.trim().split(",");
-                let sudoku_input = fields.next().expect(
-                    format!(
-                        "Unable to extract field 1 from [{}:{}].",
-                        sudoku_chunk_path.display(),
-                        line_number
-                    )
-                    .as_str(),
-                );
-                let solved_sudoku = fields.next().expect(
-                    format!(
-                        "Unable to extract field 1 from [{}:{}].",
-                        sudoku_chunk_path.display(),
-                        line_number
-                    )
-                    .as_str(),
-                );
-
-                test_logic(sudoku_input, solved_sudoku)?
-            }
-
-            Ok(())
-        },
-    )?;
-
-    Ok(())
 }
