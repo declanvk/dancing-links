@@ -467,11 +467,13 @@ impl Column {
     }
 
     /// Return the column index.
+    #[inline]
     pub fn index(self_ptr: *const Self) -> usize {
         unsafe { ptr::read(self_ptr).index }
     }
 
     /// Return the number of uncovered nodes in this column.
+    #[inline]
     pub fn size(self_ptr: *const Self) -> usize {
         unsafe { ptr::read(self_ptr).size }
     }
