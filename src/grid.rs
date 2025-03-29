@@ -227,9 +227,7 @@ impl Grid {
 
     /// Return an iterator over all columns that are in the grid (covered and
     /// uncovered).
-    pub fn all_columns_mut(
-        &mut self,
-    ) -> impl Iterator<Item = *mut Column> + DoubleEndedIterator + '_ {
+    pub fn all_columns_mut(&mut self) -> impl DoubleEndedIterator<Item = *mut Column> + '_ {
         self.columns
             .iter()
             .copied()
@@ -479,6 +477,10 @@ impl Column {
     }
 }
 
+/// This function will convert a grid to a string representation useful for
+/// debugging
+///
+/// This should only be used for test functions.
 #[cfg(test)]
 pub fn to_string(grid: &Grid) -> String {
     use std::fmt::Write;
@@ -633,7 +635,7 @@ mod tests {
         }
 
         // Check remaining columns
-        assert_eq!(grid.uncovered_columns().map(|column_ptr| unsafe { ptr::read(column_ptr).index }).count(), 0);
+        assert!(grid.uncovered_columns().map(|column_ptr| unsafe { ptr::read(column_ptr).index }).eq(0..0));
         assert_eq!(
             grid.to_dense(),
             [

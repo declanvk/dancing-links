@@ -7,24 +7,28 @@ repository = "https://github.com/declanvk/dancing-links/"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-keywords = ["algorithms", "data-structures", "sudoku", "latin-square", "dancing-links"]
-categories = ["algorithms", "data-structures", "mathematics"]
-rust-version = "1.60" # MSRV
-
-exclude = [
-    ".github/",
+keywords = [
+    "algorithms",
+    "data-structures",
+    "sudoku",
+    "latin-square",
+    "dancing-links",
 ]
+categories = ["algorithms", "data-structures", "mathematics"]
+rust-version = "1.71" # MSRV
+
+exclude = [".github/"]
 
 [badges]
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
-bumpalo = "3.4"
+bumpalo = "3.17.0"
 
 [dev-dependencies]
-env_logger = "0.10.0"
-log = "0.4.17"
-rayon = "1.7.0"
+env_logger = { version = "0.11.7", default-features = false }
+log = "0.4.27"
+rayon = "1.10.0"
 
 [profile.bench]
 debug = true

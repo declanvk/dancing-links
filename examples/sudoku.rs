@@ -17,7 +17,7 @@ fn print_solution(problem: &str, solution: &Vec<&Possibility>) {
         s[poss.row * 9 + poss.column] = ('0' as usize + poss.value) as u8 as char;
     }
     for i in 0..9 {
-        println!("{}", s[i * 9..(i + 1) * 9].into_iter().collect::<String>());
+        println!("{}", s[i * 9..(i + 1) * 9].iter().collect::<String>());
     }
 }
 
@@ -49,6 +49,6 @@ fn main() {
     let solver = sudoku.solver();
     for solution in solver {
         print_solution(problem, &solution);
-        println!("");
+        println!();
     }
 }

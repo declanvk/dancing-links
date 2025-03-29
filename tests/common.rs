@@ -104,11 +104,11 @@ pub fn format_sudoku_possibilities(
     box_side_length: usize,
 ) -> String {
     let side_length = box_side_length * box_side_length;
-    let mut output = vec!['0' as u8; side_length * side_length];
+    let mut output = vec![b'0'; side_length * side_length];
 
     for possibility in possibilities {
         let index = possibility.row * side_length + possibility.column;
-        if output[index] == ('0' as u8) {
+        if output[index] == b'0' {
             let formated_value = possibility.value.to_string();
             assert_eq!(formated_value.len(), 1);
             output[index] = formated_value.as_bytes()[0];
