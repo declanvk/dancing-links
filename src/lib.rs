@@ -39,7 +39,7 @@ pub trait ExactCover {
 
     /// Return an iterator over all solutions to this instance of the exact
     /// cover problem.
-    fn solver(&self) -> Solver<Self>
+    fn solver(&self) -> Solver<'_, Self>
     where
         Self: Sized,
     {

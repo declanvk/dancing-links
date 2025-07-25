@@ -69,8 +69,7 @@ impl Grid {
             );
             debug_assert!(
                 column <= columns_data.len(),
-                "column idx should be in bounds [{:?}]",
-                column
+                "column idx should be in bounds [{column:?}]",
             );
 
             columns_data[column - 1].push((row, column));
@@ -253,7 +252,7 @@ impl Grid {
         unsafe {
             let column = ptr::read(self.root);
 
-            (column.base.right as *const _) == self.root.cast()
+            std::ptr::eq(column.base.right, self.root.cast())
         }
     }
 }
