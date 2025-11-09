@@ -15,7 +15,7 @@ keywords = [
     "dancing-links",
 ]
 categories = ["algorithms", "data-structures", "mathematics"]
-rust-version = "1.71" # MSRV
+rust-version = "1.80" # MSRV
 
 exclude = [".github/"]
 
