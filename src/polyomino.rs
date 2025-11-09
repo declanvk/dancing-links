@@ -27,7 +27,7 @@ impl PShape {
     /// before storing to the structure instance.
     pub fn new(init_width: usize, init_mask: Vec<u8>) -> Self {
         assert!(init_width != 0, "Width of shape must be non-zero.");
-        assert!(init_mask.len() != 0, "Mask cannot be empty.");
+        assert!(!init_mask.is_empty(), "Mask cannot be empty.");
         assert!(
             init_mask.len() % init_width == 0,
             "Mask with incorrect length - incorrect number of elements supplied."
